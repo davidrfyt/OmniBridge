@@ -41,7 +41,7 @@ export function startWebServer(agController, port = 8080) {
     });
 
     app.use(express.static(path.join(__dirname, 'public')));
-    app.use(express.json());
+    app.use(express.json({ limit: '50mb' }));
 
     let activeTunnels = [];
     
@@ -81,11 +81,11 @@ export function startWebServer(agController, port = 8080) {
     });
 
     app.post('/api/send', async (req, res) => {
-        const { text } = req.body;
-        if (!text) return res.status(400).json({ error: 'Missing text content' });
+        const { text, images } = req.body;
+        if (!text && (!images || images.length === 0)) return res.status(400).json({ error: 'Missing content' });
         
         try {
-            await agController.sendInstruction(text);
+            await agController.sendInstruction(text, images);
             res.json({ success: true });
         } catch (e) {
             res.status(500).json({ error: e.message || 'Dispatch failed' });

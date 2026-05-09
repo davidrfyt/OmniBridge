@@ -29,16 +29,17 @@ export class AntigravityController {
     }
 
     async connect() {
+        if (this.browser && this.browser.isConnected()) return true;
         try {
             console.log(`[CDP] Attempting to connect to Antigravity on port ${this.cdpPort}...`);
             this.browser = await puppeteer.connect({
-                browserURL: `http://localhost:${this.cdpPort}`,
+                browserURL: `http://127.0.0.1:${this.cdpPort}`,
                 defaultViewport: null,
             });
 
             const pages = await this.browser.pages();
-            // Find Antigravity's main page (workbench.html)
-            this.page = pages.find(p => p.url().includes('workbench.html')) || pages[0];
+            // Find Antigravity's main page or any active valid page
+            this.page = pages.find(p => p.url().includes('workbench.html')) || pages.find(p => !p.url().startsWith('devtools://') && p.url() !== 'about:blank') || pages[0];
             
             console.log('[CDP] Successfully connected to Antigravity Core!');
             this.lastKnownMessage = (await this.getLastResponse()) || "";
@@ -60,7 +61,10 @@ export class AntigravityController {
             if (!this.browser) return;
             try {
                 const pages = await this.browser.pages();
-                const agPages = pages.filter(p => p.url().includes('workbench.html'));
+                let agPages = pages.filter(p => p.url().includes('workbench.html'));
+                if (agPages.length === 0) {
+                    agPages = pages.filter(p => p.url().includes('localhost') || p.url().includes('127.0.0.1') || p.url().startsWith('file://'));
+                }
 
                 // 1. Check for Retry ON ALL OPEN PAGES
                 for (const p of agPages) {
@@ -118,10 +122,16 @@ export class AntigravityController {
     }
 
     async getProjects() {
-        if (!this.browser) return [];
+        if (!this.browser || !this.browser.isConnected()) {
+            await this.connect();
+        }
+        if (!this.browser || !this.browser.isConnected()) return [];
         try {
             const pages = await this.browser.pages();
-            const agPages = pages.filter(p => p.url().includes('workbench.html'));
+            let agPages = pages.filter(p => p.url().includes('workbench.html'));
+            if (agPages.length === 0) {
+                agPages = pages.filter(p => p.url().includes('localhost') || p.url().includes('127.0.0.1') || p.url().startsWith('file://'));
+            }
             
             const projects = [];
             for (let i = 0; i < agPages.length; i++) {
@@ -139,7 +149,10 @@ export class AntigravityController {
         if (!this.browser) return false;
         try {
             const pages = await this.browser.pages();
-            const agPages = pages.filter(p => p.url().includes('workbench.html'));
+            let agPages = pages.filter(p => p.url().includes('workbench.html'));
+            if (agPages.length === 0) {
+                agPages = pages.filter(p => p.url().includes('localhost') || p.url().includes('127.0.0.1') || p.url().startsWith('file://'));
+            }
             if (index >= 0 && index < agPages.length) {
                 this.page = agPages[index];
                 await this.page.bringToFront();
@@ -175,7 +188,10 @@ export class AntigravityController {
         }
     }
 
-    async sendInstruction(text) {
+    async sendInstruction(text, imagesArray = []) {
+        if (!this.browser || !this.browser.isConnected()) {
+            await this.connect();
+        }
         if (!this.page) throw new Error('No connection to Antigravity Core.');
 
         try {
@@ -193,8 +209,37 @@ export class AntigravityController {
             await this.page.keyboard.up(isMac ? 'Meta' : 'Control');
             await this.page.keyboard.press('Backspace');
 
-            // Safely type message
-            await this.page.keyboard.type(text);
+            if (imagesArray && imagesArray.length > 0) {
+                // Dispatch paste event with all images
+                await this.page.evaluate(async (selector, base64Array) => {
+                    const input = document.querySelector(selector);
+                    if (!input) return;
+                    
+                    const dataTransfer = new DataTransfer();
+                    
+                    for (let i = 0; i < base64Array.length; i++) {
+                        const fetchRes = await fetch(base64Array[i]);
+                        const blob = await fetchRes.blob();
+                        const file = new File([blob], `pasted_image_${i}.png`, { type: blob.type });
+                        dataTransfer.items.add(file);
+                    }
+                    
+                    const pasteEvent = new ClipboardEvent('paste', {
+                        clipboardData: dataTransfer,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    input.dispatchEvent(pasteEvent);
+                }, this.SELECTORS.chatInput, imagesArray);
+                
+                // Wait briefly for the UI to attach and process all image files
+                await new Promise(r => setTimeout(r, 1000 * imagesArray.length));
+            }
+
+            if (text) {
+                // Safely type message
+                await this.page.keyboard.type(text);
+            }
 
             // Press Enter to send
             await this.page.keyboard.press('Enter');
@@ -260,6 +305,9 @@ export class AntigravityController {
     }
 
     async getAllMessages() {
+        if (!this.browser || !this.browser.isConnected()) {
+            await this.connect();
+        }
         if (!this.page) return [];
         try {
             return await this.page.evaluate((selectors) => {
