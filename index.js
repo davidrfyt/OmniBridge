@@ -3,6 +3,14 @@ import { AntigravityController } from './src/antigravity.js';
 import { startWebServer } from './src/web.js';
 
 async function bootstrap() {
+    process.on('uncaughtException', (err) => {
+        console.error('\n🚨 [CRITICAL ERROR] Uncaught Exception:', err);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('\n🚨 [CRITICAL ERROR] Unhandled Promise Rejection at:', promise, 'reason:', reason);
+    });
+
     console.log('\n=================================================');
     console.log(' 🌐 OMNIBRIDGE INITIALIZING... ');
     console.log('=================================================\n');

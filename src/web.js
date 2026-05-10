@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import localtunnel from 'localtunnel';
+import localtunnel from './labcoreTunnel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,17 +46,23 @@ export function startWebServer(agController, port = 8080) {
     let activeTunnels = [];
     
     app.get('/api/tunnels', (req, res) => {
-        res.json({ tunnels: activeTunnels.map(t => ({ url: t.url, port: t.port, isPrimary: t.isPrimary })) });
+        res.json({ tunnels: activeTunnels.map(t => ({ url: t.url, port: t.port, proto: t.proto, host: t.host, isPrimary: t.isPrimary })) });
     });
 
     app.post('/api/tunnel', async (req, res) => {
-        const tunnelPort = req.body.port || port;
+        const tunnelPort = parseInt(req.body.port, 10) || port;
+        const proto = req.body.proto || 'http';
+        const host = req.body.host || 'localhost';
         try {
-            const tunnel = await localtunnel({ port: tunnelPort });
-            activeTunnels.push({ instance: tunnel, url: tunnel.url, port: tunnelPort });
+            const tunnel = await localtunnel({ port: tunnelPort, proto, host });
+            activeTunnels.push({ instance: tunnel, url: tunnel.url, port: tunnelPort, proto, host, isPrimary: false });
             
             tunnel.on('close', () => {
                 activeTunnels = activeTunnels.filter(t => t.url !== tunnel.url);
+            });
+            
+            tunnel.on('error', (err) => {
+                console.error(`[TUNNEL ERROR] Secondary tunnel error (${tunnelPort}):`, err.message);
             });
             
             res.json({ url: tunnel.url, port: tunnelPort });
@@ -130,6 +136,10 @@ export function startWebServer(agController, port = 8080) {
         console.log(`🚀 [TUNNEL] Primary external URL active: ${tunnel.url}`);
         tunnel.on('close', () => {
             activeTunnels = activeTunnels.filter(t => t.url !== tunnel.url);
+        });
+        
+        tunnel.on('error', (err) => {
+            console.error(`[TUNNEL ERROR] Primary tunnel error:`, err.message);
         });
     }).catch(e => {
         console.error('[ERROR] Failed to establish primary tunnel:', e.message);
