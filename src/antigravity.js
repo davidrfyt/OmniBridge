@@ -10,6 +10,7 @@ export class AntigravityController {
         this.cdpPort = process.env.CDP_PORT || 9222;
         this.watcherInterval = null;
         this.lastKnownMessage = "";
+        this.activeIndex = null; // Track the active project
         this.onNewMessageCallback = null;
         this.onRetryCallback = null;
         
@@ -42,6 +43,17 @@ export class AntigravityController {
             this.page = pages.find(p => p.url().includes('workbench.html')) || pages.find(p => !p.url().startsWith('devtools://') && p.url() !== 'about:blank') || pages[0];
             
             console.log('[CDP] Successfully connected to Antigravity Core!');
+            
+            this.browser.on('disconnected', () => {
+                console.log('[CDP] Antigravity Core disconnected.');
+                this.browser = null;
+                this.page = null;
+                if (this.watcherInterval) {
+                    clearInterval(this.watcherInterval);
+                    this.watcherInterval = null;
+                }
+            });
+
             this.lastKnownMessage = (await this.getLastResponse()) || "";
             this.startWatcher();
             return true;
@@ -155,6 +167,7 @@ export class AntigravityController {
             }
             if (index >= 0 && index < agPages.length) {
                 this.page = agPages[index];
+                this.activeIndex = index;
                 await this.page.bringToFront();
                 
                 this.lastKnownMessage = (await this.getLastResponse()) || "";
@@ -296,10 +309,11 @@ export class AntigravityController {
                 if (realMessages.length === 0) return null;
                 return realMessages[realMessages.length - 1].innerText;
             }, this.SELECTORS);
-            
             return lastMessage;
         } catch (error) {
-            console.error('[ERROR] Reading response failed:', error);
+            if (!error.message.includes('detached Frame')) {
+                console.error('[ERROR] Reading response failed:', error);
+            }
             return null;
         }
     }
@@ -316,7 +330,9 @@ export class AntigravityController {
                 return realMessages.map(el => ({ role: 'assistant', text: el.innerText }));
             }, this.SELECTORS);
         } catch (error) {
-            console.error('[ERROR] Fetching all messages failed:', error);
+            if (!error.message.includes('detached Frame')) {
+                console.error('[ERROR] Fetching all messages failed:', error);
+            }
             return [];
         }
     }

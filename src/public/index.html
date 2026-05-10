@@ -198,6 +198,15 @@
                         </path>
                     </svg>
                 </button>
+                <button id="toggle-workspace-btn" title="Toggle Workspace Explorer"
+                    class="relative bg-slate-800/80 hover:bg-slate-700 text-purple-400 p-2.5 rounded-lg border border-slate-600 transition-colors shadow-sm">
+                    <span class="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-lg animate-pulse z-10">NEW</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z">
+                        </path>
+                    </svg>
+                </button>
             </div>
         </div>
     </header>
@@ -208,23 +217,56 @@
         <!-- Tunnels rendered here -->
     </div>
 
-    <!-- Main Chat Area -->
-    <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:px-12 flex flex-col gap-6 relative" id="chat-container">
-        <!-- Background Grid Decoration -->
-        <div class="absolute inset-0 z-0 pointer-events-none opacity-[0.03]"
-            style="background-image: linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px); background-size: 40px 40px;">
-        </div>
-
-        <div class="text-center z-10 w-full mt-10">
-            <div
-                class="inline-block glass-panel px-6 py-3 rounded-full border-cyan-500/30 text-cyan-400 text-sm font-mono shadow-[0_0_15px_rgba(6,182,212,0.15)]">
-                Connection Established. Awaiting data...
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- Workspace Sidebar -->
+        <aside id="workspace-sidebar" class="w-72 bg-slate-900/95 border-r border-slate-800 flex flex-col transition-all duration-300 z-30 hidden">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                 <span class="text-cyan-400 font-bold text-sm tracking-widest uppercase flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                    Workspace
+                    <span class="bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md ml-1">NEW</span>
+                 </span>
+                 <button id="close-workspace-btn" class="text-slate-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                 </button>
             </div>
-        </div>
-    </main>
+            
+            <div class="p-2 border-b border-slate-800 bg-slate-900 flex gap-2">
+                <button id="workspace-home-btn" title="Go to Project Root" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 p-1.5 rounded border border-slate-700 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                </button>
+                <input type="text" id="workspace-path-input" placeholder="C:/Path/To/Project"
+                    class="w-full bg-slate-950 text-slate-300 px-2 py-1.5 rounded border border-slate-700 focus:outline-none focus:border-purple-500 font-mono text-xs">
+                <button id="workspace-load-btn"
+                    class="bg-purple-600 hover:bg-purple-500 text-white px-2 py-1 rounded transition-colors text-xs font-bold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
 
-    <!-- Input Area -->
-    <footer class="p-4 md:p-6 bg-slate-900/50 backdrop-blur-md border-t border-slate-800 z-20">
+            <div id="file-tree" class="flex-1 overflow-y-auto p-2 font-mono text-xs text-slate-300 select-none">
+                <div class="text-center text-slate-500 mt-10 p-4">Enter a path above to browse workspace.</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div class="flex-1 flex flex-col h-full relative">
+            <!-- Main Chat Area -->
+            <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:px-12 flex flex-col gap-6 relative" id="chat-container">
+                <!-- Background Grid Decoration -->
+                <div class="absolute inset-0 z-0 pointer-events-none opacity-[0.03]"
+                    style="background-image: linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px); background-size: 40px 40px;">
+                </div>
+
+                <div class="text-center z-10 w-full mt-10">
+                    <div
+                        class="inline-block glass-panel px-6 py-3 rounded-full border-cyan-500/30 text-cyan-400 text-sm font-mono shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+                        Connection Established. Awaiting data...
+                    </div>
+                </div>
+            </main>
+
+            <!-- Input Area -->
+            <footer class="p-4 md:p-6 bg-slate-900/50 backdrop-blur-md border-t border-slate-800 z-20">
         <form id="chat-form" class="max-w-5xl mx-auto relative btn-glow">
             <!-- Image Preview Box -->
             <div id="image-preview-container"
@@ -258,6 +300,8 @@
             </div>
         </form>
     </footer>
+        </div>
+    </div>
 
     <script>
         const socket = io();
@@ -523,6 +567,11 @@
                     opt.text = p.title.length > 45 ? p.title.substring(0, 42) + '...' : p.title;
                     projectSelect.appendChild(opt);
                 });
+                
+                if (data.activeIndex !== null && data.activeIndex !== undefined) {
+                    projectSelect.value = data.activeIndex;
+                }
+                
                 projectSelect.disabled = false;
             } catch (err) {
                 console.error("Error synchronizing instances", err);
@@ -544,6 +593,30 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id })
                 });
+
+                // Sync workspace with new project root
+                try {
+                    const rootRes = await fetch('/api/fs/project-root');
+                    const rootData = await rootRes.json();
+                    const workspacePathInput = document.getElementById('workspace-path-input');
+                    const workspaceSidebar = document.getElementById('workspace-sidebar');
+                    
+                    if (workspacePathInput) {
+                        if (rootData.root) {
+                            workspacePathInput.value = rootData.root;
+                        } else {
+                            // If extraction fails, reset the path to force default (home dir)
+                            workspacePathInput.value = '';
+                        }
+                        
+                        // Always load the new workspace (even if empty, it falls back to os.homedir())
+                        if (workspaceSidebar && !workspaceSidebar.classList.contains('hidden')) {
+                            loadWorkspace(workspacePathInput.value);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to sync workspace path:', e);
+                }
 
                 const histRes = await fetch('/api/history');
                 const histData = await histRes.json();
@@ -636,8 +709,178 @@
             }
         });
 
+        const toggleWorkspaceBtn = document.getElementById('toggle-workspace-btn');
+        const closeWorkspaceBtn = document.getElementById('close-workspace-btn');
+        const workspaceSidebar = document.getElementById('workspace-sidebar');
+        const workspacePathInput = document.getElementById('workspace-path-input');
+        const workspaceLoadBtn = document.getElementById('workspace-load-btn');
+        const fileTree = document.getElementById('file-tree');
+
+        function toggleSidebar() {
+            if (workspaceSidebar.classList.contains('hidden')) {
+                workspaceSidebar.classList.remove('hidden');
+                localStorage.setItem('workspace-open', 'true');
+                if (!workspacePathInput.value) {
+                    document.getElementById('workspace-sync-btn').click();
+                } else if (!fileTree.querySelector('.folder-item') && !fileTree.querySelector('.file-item')) {
+                    loadWorkspace(workspacePathInput.value);
+                }
+            } else {
+                workspaceSidebar.classList.add('hidden');
+                localStorage.setItem('workspace-open', 'false');
+            }
+        }
+
+        toggleWorkspaceBtn.addEventListener('click', toggleSidebar);
+        closeWorkspaceBtn.addEventListener('click', () => {
+            workspaceSidebar.classList.add('hidden');
+            localStorage.setItem('workspace-open', 'false');
+        });
+
+        // Initialize state from local storage
+        const savedPath = localStorage.getItem('workspace-path') || '';
+        workspacePathInput.value = savedPath;
+        if (localStorage.getItem('workspace-open') !== 'false') {
+            workspaceSidebar.classList.remove('hidden');
+            // We call loadWorkspace at the end after everything is loaded
+        }
+
+        const workspaceHomeBtn = document.getElementById('workspace-home-btn');
+        workspaceHomeBtn.addEventListener('click', async () => {
+            // Ask backend for project root
+            try {
+                const res = await fetch('/api/fs/project-root');
+                const data = await res.json();
+                if (data.root) {
+                    workspacePathInput.value = data.root;
+                    loadWorkspace(data.root);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+
+        // Add auto-sync button next to home
+        const syncBtnHtml = `<button id="workspace-sync-btn" title="Sync with Active Instance" class="bg-slate-800 hover:bg-slate-700 text-purple-400 p-1.5 rounded border border-slate-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        </button>`;
+        workspaceHomeBtn.insertAdjacentHTML('afterend', syncBtnHtml);
+        document.getElementById('workspace-sync-btn').addEventListener('click', () => {
+            workspaceHomeBtn.click(); // Reuse logic
+        });
+
+        workspaceLoadBtn.addEventListener('click', () => loadWorkspace(workspacePathInput.value));
+        workspacePathInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadWorkspace(workspacePathInput.value);
+        });
+
+        async function loadWorkspace(dir = '') {
+            try {
+                fileTree.innerHTML = '<div class="text-center text-slate-500 mt-10"><svg class="animate-spin w-5 h-5 mx-auto mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading...</div>';
+                const res = await fetch(`/api/fs/ls?dir=${encodeURIComponent(dir)}`);
+                const data = await res.json();
+                
+                if (data.error) throw new Error(data.error);
+
+                workspacePathInput.value = data.pwd;
+                localStorage.setItem('workspace-path', data.pwd);
+                fileTree.innerHTML = '';
+
+                const upPath = data.pwd.substring(0, data.pwd.lastIndexOf('/')) || data.pwd.substring(0, data.pwd.lastIndexOf('\\')) || '/';
+                const upDiv = document.createElement('div');
+                upDiv.className = 'flex items-center gap-2 p-1.5 hover:bg-slate-800 rounded cursor-pointer text-cyan-400';
+                upDiv.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg> .. (Up)';
+                upDiv.onclick = () => loadWorkspace(upPath);
+                fileTree.appendChild(upDiv);
+
+                data.items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'flex items-center gap-2 p-1.5 hover:bg-slate-800 rounded cursor-pointer truncate';
+                    if (item.isDirectory) {
+                        itemDiv.innerHTML = `<svg class="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> <span class="text-slate-300 hover:text-white truncate">${item.name}</span>`;
+                        itemDiv.onclick = () => loadWorkspace(item.path);
+                    } else {
+                        itemDiv.innerHTML = `<svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> <span class="text-slate-400 hover:text-cyan-300 truncate">${item.name}</span>`;
+                        itemDiv.onclick = () => openFileModal(item.path, item.name);
+                    }
+                    fileTree.appendChild(itemDiv);
+                });
+
+            } catch (e) {
+                fileTree.innerHTML = `<div class="text-red-400 p-2 text-center break-words">${e.message}</div>`;
+            }
+        }
+
+        async function openFileModal(filePath, fileName) {
+            let modal = document.getElementById('file-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'file-modal';
+                modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden';
+                modal.innerHTML = `
+                    <div class="glass-panel w-[90vw] max-w-5xl h-[80vh] flex flex-col rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl relative">
+                        <div class="flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800">
+                            <h3 id="file-modal-title" class="font-bold text-cyan-400 font-mono truncate mr-4"></h3>
+                            <button onclick="document.getElementById('file-modal').classList.add('hidden')" class="text-slate-400 hover:text-red-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                        </div>
+                        <div class="flex-1 overflow-auto p-4 bg-[#0f172a]">
+                            <pre><code id="file-modal-content" class="text-sm font-mono text-slate-300"></code></pre>
+                        </div>
+                        <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end gap-2">
+                            <button id="file-modal-send-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded font-bold shadow-lg text-sm uppercase tracking-wide">Inject to Chat</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            try {
+                document.getElementById('file-modal-content').innerText = 'Loading...';
+                modal.classList.remove('hidden');
+                document.getElementById('file-modal-title').innerText = fileName;
+                
+                const res = await fetch(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
+                const data = await res.json();
+                
+                if (data.error) {
+                    document.getElementById('file-modal-content').innerText = 'Error reading file: ' + data.error;
+                    document.getElementById('file-modal-send-btn').onclick = null;
+                } else {
+                    document.getElementById('file-modal-content').innerText = data.content;
+                    document.getElementById('file-modal-send-btn').onclick = () => {
+                        const input = document.getElementById('chat-input');
+                        input.value = `File: ${fileName}\n\`\`\`\n${data.content.substring(0, 50000)}\n\`\`\`\n` + input.value;
+                        modal.classList.add('hidden');
+                        input.focus();
+                    };
+                }
+            } catch (e) {
+                document.getElementById('file-modal-content').innerText = 'Error: ' + e.message;
+            }
+        }
+
         loadProjects();
         renderTunnels();
+        
+        async function initializeWorkspace() {
+            if (localStorage.getItem('workspace-open') !== 'false') {
+                try {
+                    // Always auto-sync with the active instance on load
+                    const rootRes = await fetch('/api/fs/project-root');
+                    const rootData = await rootRes.json();
+                    if (rootData.root) {
+                        workspacePathInput.value = rootData.root;
+                        localStorage.setItem('workspace-path', rootData.root);
+                        loadWorkspace(rootData.root);
+                    } else {
+                        loadWorkspace(savedPath);
+                    }
+                } catch (e) {
+                    loadWorkspace(savedPath);
+                }
+            }
+        }
+        initializeWorkspace();
     </script>
 </body>
 
