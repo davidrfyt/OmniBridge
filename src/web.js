@@ -33,7 +33,15 @@ export function startWebServer(agController, port = 8080) {
 
     // Protect Socket.IO explicitly to prevent direct WS bypass
     io.engine.use((req, res, next) => {
-        const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+        let b64auth = '';
+        if (req.headers.authorization) {
+            b64auth = req.headers.authorization.split(' ')[1] || '';
+        } else {
+            // Soporte para token por query params (ej. ?token=...)
+            const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+            b64auth = urlObj.searchParams.get('token') || '';
+        }
+
         const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
         if (login === WEB_USERNAME && password === WEB_PASSWORD) {
@@ -47,7 +55,7 @@ export function startWebServer(agController, port = 8080) {
     app.use(express.json({ limit: '50mb' }));
 
     let activeTunnels = [];
-    
+
     app.get('/api/tunnels', (req, res) => {
         res.json({ tunnels: activeTunnels.map(t => ({ url: t.url, port: t.port, proto: t.proto, host: t.host, isPrimary: t.isPrimary })) });
     });
@@ -59,7 +67,7 @@ export function startWebServer(agController, port = 8080) {
         try {
             const tunnel = await createTunnel({ port: tunnelPort, protocol: proto, host });
             activeTunnels.push({ instance: tunnel, url: tunnel.url, port: tunnelPort, proto, host, isPrimary: false });
-            
+
             res.json({ url: tunnel.url, port: tunnelPort });
         } catch (e) {
             res.status(500).json({ error: e.message });
@@ -84,7 +92,7 @@ export function startWebServer(agController, port = 8080) {
     app.post('/api/send', async (req, res) => {
         const { text, images } = req.body;
         if (!text && (!images || images.length === 0)) return res.status(400).json({ error: 'Missing content' });
-        
+
         try {
             await agController.sendInstruction(text, images);
             res.json({ success: true });
@@ -130,9 +138,9 @@ export function startWebServer(agController, port = 8080) {
         if (!targetDir) {
             targetDir = os.homedir();
         }
-        
+
         targetDir = path.resolve(targetDir);
-        
+
         if (!isPathAllowed(targetDir)) {
             return res.status(403).json({ error: 'Access to this path is restricted by security policy.' });
         }
@@ -144,12 +152,12 @@ export function startWebServer(agController, port = 8080) {
                 isDirectory: f.isDirectory(),
                 path: path.join(targetDir, f.name).replace(/\\/g, '/')
             }));
-            
+
             items.sort((a, b) => {
                 if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
                 return a.isDirectory ? -1 : 1;
             });
-            
+
             res.json({ items, pwd: targetDir.replace(/\\/g, '/') });
         } catch (e) {
             res.status(500).json({ error: e.message });
@@ -159,7 +167,7 @@ export function startWebServer(agController, port = 8080) {
     app.get('/api/fs/read', async (req, res) => {
         try {
             const targetPath = req.query.path;
-            
+
             if (!isPathAllowed(targetPath)) {
                 return res.status(403).json({ error: 'Access to this file is restricted by security policy.' });
             }
@@ -213,7 +221,7 @@ export function startWebServer(agController, port = 8080) {
                             let paths = elements.map(el => el.getAttribute('title')).filter(t => t && /^[A-Za-z]:[\\/][^<>:"|?*]+$/.test(t.split('\n')[0]));
                             paths = paths.filter(isUserPath);
                             debugData.methodB_titles = paths;
-                            
+
                             if (paths.length > 0) {
                                 // The shortest path is usually the root workspace folder
                                 return paths.reduce((a, b) => a.length <= b.length ? a : b).split('\n')[0];
@@ -224,7 +232,7 @@ export function startWebServer(agController, port = 8080) {
                             const uriPaths = uriElements
                                 .map(el => el.getAttribute('data-uri') || el.getAttribute('data-resource'))
                                 .filter(uri => uri && (uri.startsWith('file:///') || uri.startsWith('vscode-file://vscode-app/')));
-                            
+
                             debugData.methodC_uris = uriPaths;
 
                             for (const uri of uriPaths) {
@@ -234,29 +242,29 @@ export function startWebServer(agController, port = 8080) {
                                     return cleanUri;
                                 }
                             }
-                            
+
                             // Let's dump this to the console if it fails so backend can read it
                             console.log("AG_DEBUG_DUMP:" + JSON.stringify(debugData));
                         } catch (e) {
-                            console.log("AG_DEBUG_DUMP:" + JSON.stringify({error: e.message}));
+                            console.log("AG_DEBUG_DUMP:" + JSON.stringify({ error: e.message }));
                         }
                         return null;
                     });
-                    
+
                     // Hook to read the console message
                     agController.page.on('console', async msg => {
                         if (msg.text().startsWith('AG_DEBUG_DUMP:')) {
                             const data = msg.text().replace('AG_DEBUG_DUMP:', '');
                             try {
                                 await fs.writeFile(path.join(__dirname, '../../debug.json'), data, 'utf-8');
-                            } catch(e) {}
+                            } catch (e) { }
                         }
                     });
 
                     if (extractedPath) {
                         let cleanPath = extractedPath.replace(/\\/g, '/');
                         if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
-                        
+
                         // Extract project name from title to find the root boundary
                         let projectName = "";
                         try {
@@ -271,13 +279,13 @@ export function startWebServer(agController, port = 8080) {
                                     break;
                                 }
                             }
-                        } catch (e) {}
+                        } catch (e) { }
 
                         // If the path is a deep file path, truncate it at the project root folder
                         if (projectName) {
                             const lowerPath = cleanPath.toLowerCase();
                             const lowerProject = projectName.toLowerCase();
-                            
+
                             if (lowerPath.includes('/' + lowerProject + '/')) {
                                 const idx = lowerPath.lastIndexOf('/' + lowerProject + '/');
                                 cleanPath = cleanPath.substring(0, idx + 1 + projectName.length);

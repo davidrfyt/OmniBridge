@@ -250,8 +250,10 @@ export class AntigravityController {
             }
 
             if (text) {
-                // Safely type message
-                await this.page.keyboard.type(text);
+                // Inyectar el texto instantáneamente mediante execCommand en lugar de teclear letra por letra
+                await this.page.evaluate((txt) => {
+                    document.execCommand('insertText', false, txt);
+                }, text);
             }
 
             // Press Enter to send
@@ -271,6 +273,18 @@ export class AntigravityController {
         try {
             // Find and click the '+' button for a new conversation in the UI
             await this.page.evaluate(() => {
+                // Búsqueda resiliente: Por aria-label o título
+                const buttons = Array.from(document.querySelectorAll('button, [role="button"], .cursor-pointer'));
+                const newChatBtn = buttons.find(el => {
+                    const label = (el.getAttribute('aria-label') || el.getAttribute('title') || '').toLowerCase();
+                    return label.includes('new chat') || label.includes('nuevo chat');
+                });
+                if (newChatBtn) {
+                    newChatBtn.click();
+                    return;
+                }
+
+                // Fallback: Por SVG
                 const svgs = document.querySelectorAll('svg path');
                 for (const path of svgs) {
                     const d = path.getAttribute('d') || '';
@@ -401,6 +415,13 @@ export class AntigravityController {
         if (!this.page) return null;
         try {
             await this.page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button, [role="button"], .cursor-pointer'));
+                const historyBtn = buttons.find(el => {
+                    const label = (el.getAttribute('aria-label') || el.getAttribute('title') || '').toLowerCase();
+                    return label.includes('history') || label.includes('historial') || label.includes('chats');
+                });
+                if (historyBtn) { historyBtn.click(); return; }
+
                 const svgs = document.querySelectorAll('svg path');
                 for (const path of svgs) {
                     const d = path.getAttribute('d') || '';
@@ -447,6 +468,13 @@ export class AntigravityController {
         if (!this.page) return false;
         try {
             await this.page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button, [role="button"], .cursor-pointer'));
+                const historyBtn = buttons.find(el => {
+                    const label = (el.getAttribute('aria-label') || el.getAttribute('title') || '').toLowerCase();
+                    return label.includes('history') || label.includes('historial') || label.includes('chats');
+                });
+                if (historyBtn) { historyBtn.click(); return; }
+
                 const svgs = document.querySelectorAll('svg path');
                 for (const path of svgs) {
                     const d = path.getAttribute('d') || '';

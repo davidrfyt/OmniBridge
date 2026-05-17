@@ -339,6 +339,7 @@
             } else if (!isUser) {
                 content.innerHTML = marked.parse(text);
             } else {
+                content.style.whiteSpace = 'pre-wrap';
                 content.innerHTML = text; // User HTML (for images) should be parsed
             }
 
