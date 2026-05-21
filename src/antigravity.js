@@ -250,9 +250,19 @@ export class AntigravityController {
             }
 
             if (text) {
-                // Inyectar el texto instantáneamente mediante execCommand en lugar de teclear letra por letra
+                // Inyectar el texto instantáneamente conservando el formato multilínea y los saltos de línea
                 await this.page.evaluate((txt) => {
-                    document.execCommand('insertText', false, txt);
+                    const escapeHTML = (string) => {
+                        return string
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+                    };
+                    const normalizedText = txt.replace(/\r\n/g, '\n');
+                    const html = escapeHTML(normalizedText).replace(/\n/g, '<br>');
+                    document.execCommand('insertHTML', false, html);
                 }, text);
             }
 

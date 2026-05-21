@@ -8,6 +8,9 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- GSAP & Monaco CDN Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet">
@@ -26,6 +29,29 @@
                 #020617;
             background-attachment: fixed;
             color: #e2e8f0;
+            transition: background 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Ambient Glow States */
+        body.state-thinking {
+            background: radial-gradient(circle at 20% 40%, rgba(6, 182, 212, 0.22), transparent 30%),
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.22), transparent 30%),
+                #030712;
+        }
+
+        body.state-retry {
+            background: radial-gradient(circle at 25% 45%, rgba(234, 179, 8, 0.25), transparent 35%),
+                radial-gradient(circle at 75% 15%, rgba(239, 68, 68, 0.2), transparent 35%),
+                #0c0404;
+        }
+
+
+
+        /* Monaco transparency overrides */
+        .monaco-editor,
+        .monaco-editor .margin,
+        .monaco-editor-background {
+            background-color: transparent !important;
         }
 
         /* Glassmorphism Classes */
@@ -35,6 +61,7 @@
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .glass-header {
@@ -42,6 +69,7 @@
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
         }
+
 
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
@@ -135,6 +163,13 @@
         .btn-glow:hover::after {
             opacity: 0.6;
         }
+
+        /* Monaco transparency overrides */
+        .monaco-editor, 
+        .monaco-editor .margin, 
+        .monaco-editor-background {
+            background-color: transparent !important;
+        }
     </style>
 </head>
 
@@ -198,6 +233,34 @@
                         </path>
                     </svg>
                 </button>
+
+                <button id="toggle-audio-btn" title="Toggle Sound Effects"
+                    class="bg-slate-800/80 hover:bg-slate-700 text-cyan-400 p-2.5 rounded-lg border border-slate-600 transition-colors shadow-sm flex items-center justify-center">
+                    <svg id="audio-icon-on" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z">
+                        </path>
+                    </svg>
+                    <svg id="audio-icon-off" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zm10.95-6.95l3.536 3.536m0-3.536l-3.536 3.536">
+                        </path>
+                    </svg>
+                </button>
+                <button id="export-md-btn" title="Export to Markdown (.md)"
+                    class="bg-slate-800/80 hover:bg-slate-700 text-emerald-400 p-2.5 rounded-lg border border-slate-600 transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                    <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span class="text-xs font-bold hidden lg:inline uppercase tracking-wider text-emerald-400/90">Export MD</span>
+                </button>
+                <button id="export-json-btn" title="Export to JSON (.json)"
+                    class="bg-slate-800/80 hover:bg-slate-700 text-amber-400 p-2.5 rounded-lg border border-slate-600 transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                    <svg class="w-4 h-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    <span class="text-xs font-bold hidden lg:inline uppercase tracking-wider text-amber-400/90">Export JSON</span>
+                </button>
                 <button id="toggle-workspace-btn" title="Toggle Workspace Explorer"
                     class="relative bg-slate-800/80 hover:bg-slate-700 text-purple-400 p-2.5 rounded-lg border border-slate-600 transition-colors shadow-sm">
                     <span class="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-cyan-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-lg animate-pulse z-10">NEW</span>
@@ -217,7 +280,7 @@
         <!-- Tunnels rendered here -->
     </div>
 
-    <div class="flex flex-1 overflow-hidden relative">
+    <div id="main-content-wrapper" class="flex flex-1 overflow-hidden relative">
         <!-- Workspace Sidebar -->
         <aside id="workspace-sidebar" class="w-72 bg-slate-900/95 border-r border-slate-800 flex flex-col transition-all duration-300 z-30 hidden">
             <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
@@ -274,9 +337,9 @@
             </div>
 
             <div
-                class="glass-panel rounded-xl flex items-center p-2 border-slate-600/50 focus-within:border-cyan-500/50 transition-colors">
+                class="glass-panel rounded-xl flex items-end p-2 border-slate-600/50 focus-within:border-cyan-500/50 transition-colors">
 
-                <button type="button" id="upload-btn" class="p-2 text-slate-400 hover:text-cyan-400 transition-colors"
+                <button type="button" id="upload-btn" class="p-2 text-slate-400 hover:text-cyan-400 transition-colors mb-1.5"
                     title="Upload Images (Max 5)">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -285,12 +348,12 @@
                 </button>
                 <input type="file" id="file-upload" class="hidden" accept="image/*" multiple>
 
-                <input type="text" id="chat-input" placeholder="Initialize command sequence... (Paste or Upload images)"
-                    autocomplete="off"
-                    class="flex-1 bg-transparent border-none px-2 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-0 text-base">
+                <textarea id="chat-input" placeholder="Initialize command sequence... (Paste or Upload images)"
+                    autocomplete="off" rows="1"
+                    class="flex-1 bg-transparent border-none px-2 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-0 text-base resize-none overflow-y-auto max-h-48"></textarea>
 
                 <button type="submit" id="send-btn"
-                    class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold px-6 py-3 rounded-lg flex items-center justify-center transition-all shadow-[0_0_10px_rgba(6,182,212,0.4)] disabled:opacity-50 min-w-[120px] ml-2 uppercase tracking-wide text-sm">
+                    class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold px-6 py-3 rounded-lg flex items-center justify-center transition-all shadow-[0_0_10px_rgba(6,182,212,0.4)] disabled:opacity-50 min-w-[120px] ml-2 uppercase tracking-wide text-sm mb-1.5">
                     <span>Execute</span>
                     <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -301,6 +364,33 @@
         </form>
     </footer>
         </div>
+
+        <!-- Editor Dock Panel (Right Sidebar) -->
+        <aside id="editor-dock-panel" class="w-[45vw] bg-slate-900/95 border-l border-slate-800 flex flex-col overflow-hidden z-30 hidden">
+            <div class="flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800">
+                <div class="flex items-center gap-2 truncate mr-4">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <h3 id="editor-panel-title" class="font-bold text-cyan-400 font-mono truncate"></h3>
+                    <span id="file-save-status" class="text-slate-500 text-xs font-mono ml-2"></span>
+                </div>
+                <button id="close-editor-panel-btn" class="text-slate-400 hover:text-red-400 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex-1 relative bg-[#121824]/40" id="monaco-container">
+                <div class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm font-mono gap-2">
+                    <svg class="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Loading Monaco Core...
+                </div>
+            </div>
+            <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-between items-center gap-2">
+                <div class="text-slate-500 text-xs font-mono hidden md:block">Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">Ctrl + S</kbd> to save</div>
+                <div class="flex gap-2 ml-auto">
+                    <button id="editor-panel-save-btn" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2 rounded font-bold shadow-lg text-sm uppercase tracking-wide transition-all">Save File</button>
+                    <button id="editor-panel-send-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded font-bold shadow-lg text-sm uppercase tracking-wide transition-all">Inject to Chat</button>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <script>
@@ -315,11 +405,136 @@
 
         marked.setOptions({ breaks: true });
 
+        // Set initial body state
+        document.body.classList.add('state-idle');
+
+        // Auto-resize chat input logic
+        function autoResizeChatInput() {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = chatInput.scrollHeight + 'px';
+        }
+        chatInput.addEventListener('input', autoResizeChatInput);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.requestSubmit();
+            }
+        });
+
+        // Atmospheric Web Audio API Synthesizer
+        let isAudioEnabled = localStorage.getItem('audio-enabled') !== 'false';
+
+        function playSynthSound(type) {
+            if (!isAudioEnabled) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                if (type === 'success') {
+                    // Rising sweep
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+                    
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.3);
+                } else if (type === 'warning') {
+                    // Tactical warn sweep
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(320, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(160, ctx.currentTime + 0.15);
+                    osc.frequency.linearRampToValueAtTime(280, ctx.currentTime + 0.3);
+                    
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.4);
+                } else if (type === 'thinking') {
+                    // Sci-fi hum ping
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(750, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(550, ctx.currentTime + 0.12);
+                    
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.15);
+                } else if (type === 'click') {
+                    // Mechanical lock click
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                    osc.frequency.setValueAtTime(2400, ctx.currentTime + 0.008);
+                    
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.004);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.05);
+                }
+            } catch (e) {
+                console.warn("Synth audio blocked or not supported:", e);
+            }
+        }
+
+        // Header Control Buttons Logic
+        const toggleAudioBtn = document.getElementById('toggle-audio-btn');
+        const audioIconOn = document.getElementById('audio-icon-on');
+        const audioIconOff = document.getElementById('audio-icon-off');
+
+        function updateAudioButtonState() {
+            if (isAudioEnabled) {
+                audioIconOn.classList.remove('hidden');
+                audioIconOff.classList.add('hidden');
+            } else {
+                audioIconOn.classList.add('hidden');
+                audioIconOff.classList.remove('hidden');
+            }
+        }
+
+        toggleAudioBtn.addEventListener('click', () => {
+            isAudioEnabled = !isAudioEnabled;
+            localStorage.setItem('audio-enabled', isAudioEnabled ? 'true' : 'false');
+            updateAudioButtonState();
+            if (isAudioEnabled) playSynthSound('click');
+        });
+        updateAudioButtonState();
+
+        const mainContentWrapper = document.getElementById('main-content-wrapper');
+
+        // Ambient interactivity (3D parallax effects completely removed)
+
+        // Chat message staggering and dynamic addition
         function addMessage(text, role) {
             const div = document.createElement('div');
             const isUser = role === 'user';
 
-            div.className = `z-10 max-w-4xl w-full p-5 rounded-2xl animate-fade-in glass-panel ${isUser ? 'msg-user self-end ml-auto' : 'msg-assistant mr-auto'}`;
+            div.className = `z-10 max-w-4xl w-full p-5 rounded-2xl glass-panel opacity-0 ${isUser ? 'msg-user self-end ml-auto' : 'msg-assistant mr-auto'}`;
 
             const header = document.createElement('div');
             header.className = `text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 ${isUser ? 'text-purple-400 justify-end' : 'text-cyan-400'}`;
@@ -333,56 +548,36 @@
             const content = document.createElement('div');
             content.className = 'markdown-body';
 
-            // If it's AI text and looks like simple markdown (no backticks), force pre to maintain formatting
             if (!isUser && !text.includes('```')) {
                 content.innerHTML = `<pre style="background:transparent!important; border:none; padding:0; color:inherit; font-family:'Inter',sans-serif; white-space:pre-wrap;">${text}</pre>`;
             } else if (!isUser) {
                 content.innerHTML = marked.parse(text);
             } else {
                 content.style.whiteSpace = 'pre-wrap';
-                content.innerHTML = text; // User HTML (for images) should be parsed
+                content.innerHTML = text;
             }
 
             div.appendChild(header);
             div.appendChild(content);
-
             chatContainer.appendChild(div);
-            // Fix: scroll the actual chat container instead of the window
+            
+            // GSAP smooth flat slide-spring staggers
+            gsap.fromTo(div, 
+                { opacity: 0, y: 25 }, 
+                { opacity: 1, y: 0, duration: 0.65, ease: "back.out(1.1)" }
+            );
+
             chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
-        }
-
-        // Sci-Fi Notification Sound using Web Audio API (no external files needed)
-        function playNotificationSound() {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(600, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
-
-                gain.gain.setValueAtTime(0, ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                osc.start();
-                osc.stop(ctx.currentTime + 0.2);
-            } catch (e) {
-                console.log("Audio not supported or blocked");
-            }
         }
 
         function showThinking() {
             if (document.getElementById('thinking-indicator')) return;
+            document.body.className = "min-h-screen flex flex-col h-screen overflow-hidden state-thinking";
+            playSynthSound('thinking');
+
             const div = document.createElement('div');
             div.id = 'thinking-indicator';
-            div.className = 'z-10 max-w-4xl w-full p-5 rounded-2xl animate-fade-in glass-panel msg-assistant mr-auto';
+            div.className = 'z-10 max-w-4xl w-full p-5 rounded-2xl glass-panel msg-assistant mr-auto opacity-0';
             div.innerHTML = `
                 <div class="text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 text-cyan-400">
                     <svg class="w-4 h-4 animate-spin text-cyan-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
@@ -391,6 +586,7 @@
                 <div class="markdown-body text-cyan-400/80 animate-pulse font-mono text-sm">Processing neural streams...</div>
             `;
             chatContainer.appendChild(div);
+            gsap.fromTo(div, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4 });
             chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
         }
 
@@ -402,8 +598,9 @@
         socket.on('new_message', (msg) => {
             if (msg.text && msg.role === 'assistant') {
                 removeThinking();
+                document.body.className = "min-h-screen flex flex-col h-screen overflow-hidden state-idle";
                 addMessage(msg.text, 'assistant');
-                playNotificationSound();
+                playSynthSound('success');
             }
         });
 
@@ -421,11 +618,19 @@
         });
 
         socket.on('retry_action', (data) => {
+            document.body.className = "min-h-screen flex flex-col h-screen overflow-hidden state-retry";
+            playSynthSound('warning');
+
             const div = document.createElement('div');
-            div.className = 'z-10 mx-auto glass-panel px-4 py-2 rounded-lg border-yellow-500/50 text-yellow-400 text-xs font-mono flex items-center gap-2 animate-fade-in shadow-[0_0_10px_rgba(234,179,8,0.15)] my-2';
+            div.className = 'z-10 mx-auto glass-panel px-4 py-2 rounded-lg border-yellow-500/50 text-yellow-400 text-xs font-mono flex items-center gap-2 shadow-[0_0_10px_rgba(234,179,8,0.15)] my-2 opacity-0';
             div.innerHTML = `<svg class="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> ${data.message}`;
             chatContainer.appendChild(div);
+            gsap.fromTo(div, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 });
             chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+
+            setTimeout(() => {
+                document.body.className = "min-h-screen flex flex-col h-screen overflow-hidden state-idle";
+            }, 6000);
         });
 
         let currentImagesBase64 = [];
@@ -471,7 +676,6 @@
             }
         }
 
-        // Image Paste Handler
         chatInput.addEventListener('paste', (e) => {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (let index in items) {
@@ -482,7 +686,6 @@
             }
         });
 
-        // File Upload Handler
         const fileUploadInput = document.getElementById('file-upload');
         document.getElementById('upload-btn').addEventListener('click', () => {
             fileUploadInput.click();
@@ -492,7 +695,7 @@
             for (let i = 0; i < files.length; i++) {
                 addImageFile(files[i]);
             }
-            fileUploadInput.value = ''; // Reset
+            fileUploadInput.value = '';
         });
 
         chatForm.addEventListener('submit', async (e) => {
@@ -500,7 +703,6 @@
             const text = chatInput.value.trim();
             if (!text && currentImagesBase64.length === 0) return;
 
-            // Render message in UI
             let userHtml = text ? text + '\n' : '';
             if (currentImagesBase64.length > 0) {
                 userHtml += '<div class="flex gap-2 flex-wrap mt-2 mb-2">';
@@ -510,12 +712,14 @@
                 userHtml += '</div>';
             }
             addMessage(userHtml, 'user');
+            playSynthSound('click');
 
             showThinking();
 
             const payloadImages = [...currentImagesBase64];
 
             chatInput.value = '';
+            autoResizeChatInput();
             currentImagesBase64 = [];
             renderImagePreviews();
 
@@ -535,6 +739,7 @@
                 }
             } catch (err) {
                 removeThinking();
+                document.body.className = "min-h-screen flex flex-col h-screen overflow-hidden state-idle";
                 if (err.message.includes('timeout')) {
                     alert('Command failed: Antigravity is busy generating a response or the input is locked. Please wait for it to finish.');
                 } else {
@@ -583,6 +788,7 @@
             const id = e.target.value;
             if (id === '') return;
             try {
+                playSynthSound('click');
                 const loadingMsg = document.createElement('div');
                 loadingMsg.className = 'text-center z-10 w-full mt-4';
                 loadingMsg.innerHTML = '<div class="inline-block glass-panel px-6 py-2 rounded-full border-purple-500/30 text-purple-400 text-xs font-mono animate-pulse">Synchronizing project log...</div>';
@@ -606,11 +812,9 @@
                         if (rootData.root) {
                             workspacePathInput.value = rootData.root;
                         } else {
-                            // If extraction fails, reset the path to force default (home dir)
                             workspacePathInput.value = '';
                         }
                         
-                        // Always load the new workspace (even if empty, it falls back to os.homedir())
                         if (workspaceSidebar && !workspaceSidebar.classList.contains('hidden')) {
                             loadWorkspace(workspacePathInput.value);
                         }
@@ -638,6 +842,7 @@
         });
 
         document.getElementById('refresh-projects-btn').addEventListener('click', () => {
+            playSynthSound('click');
             projectSelect.innerHTML = '<option value="">Synchronizing...</option>';
             projectSelect.disabled = true;
             loadProjects();
@@ -672,6 +877,7 @@
 
         window.closeTunnel = async function (url) {
             try {
+                playSynthSound('click');
                 await fetch('/api/tunnel/close', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -687,6 +893,8 @@
             const tunnelPort = document.getElementById('tunnel-port').value || 8080;
             const tunnelProto = document.getElementById('tunnel-proto').value || 'http';
             const tunnelHost = document.getElementById('tunnel-host').value || 'localhost';
+            
+            playSynthSound('click');
             tunnelBtn.disabled = true;
             tunnelBtn.innerText = 'Initializing...';
             try {
@@ -698,16 +906,80 @@
                 const data = await res.json();
                 if (data.url) {
                     tunnelBtn.innerText = 'Deploy Tunnel';
+                    playSynthSound('success');
                     renderTunnels();
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
             } catch (err) {
+                playSynthSound('warning');
                 alert('Deployment error: ' + err.message);
                 tunnelBtn.innerText = 'Deploy Tunnel';
             } finally {
                 tunnelBtn.disabled = false;
             }
+        });
+
+        // History Export Logic
+        async function fetchHistoryForExport() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                return data.messages || [];
+            } catch (e) {
+                console.error('Error fetching history for export:', e);
+                alert('Failed to retrieve chat logs for export.');
+                return [];
+            }
+        }
+
+        function downloadFile(content, fileName, contentType) {
+            const a = document.createElement("a");
+            const file = new Blob([content], { type: contentType });
+            a.href = URL.createObjectURL(file);
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        document.getElementById('export-md-btn').addEventListener('click', async () => {
+            playSynthSound('click');
+            const messages = await fetchHistoryForExport();
+            if (messages.length === 0) {
+                alert('No messages found in history to export.');
+                return;
+            }
+
+            const projectName = projectSelect.options[projectSelect.selectedIndex]?.text || 'OmniBridge';
+            let mdContent = `# OmniBridge Chat Log - ${projectName}\n\nGenerated on ${new Date().toLocaleString()}\n\n---\n\n`;
+
+            messages.forEach(m => {
+                const roleName = m.role === 'user' ? 'YOU' : 'ANTIGRAVITY AI';
+                const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : 'N/A';
+                mdContent += `### 🤖 ${roleName} (${timeStr})\n\n${m.text}\n\n---\n\n`;
+            });
+
+            downloadFile(mdContent, `${projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_history.md`, 'text/markdown');
+            playSynthSound('success');
+        });
+
+        document.getElementById('export-json-btn').addEventListener('click', async () => {
+            playSynthSound('click');
+            const messages = await fetchHistoryForExport();
+            if (messages.length === 0) {
+                alert('No messages found in history to export.');
+                return;
+            }
+
+            const projectName = projectSelect.options[projectSelect.selectedIndex]?.text || 'OmniBridge';
+            const exportData = {
+                project: projectName,
+                exportedAt: new Date().toISOString(),
+                messages: messages
+            };
+
+            downloadFile(JSON.stringify(exportData, null, 2), `${projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_history.json`, 'application/json');
+            playSynthSound('success');
         });
 
         const toggleWorkspaceBtn = document.getElementById('toggle-workspace-btn');
@@ -718,6 +990,7 @@
         const fileTree = document.getElementById('file-tree');
 
         function toggleSidebar() {
+            playSynthSound('click');
             if (workspaceSidebar.classList.contains('hidden')) {
                 workspaceSidebar.classList.remove('hidden');
                 localStorage.setItem('workspace-open', 'true');
@@ -734,21 +1007,20 @@
 
         toggleWorkspaceBtn.addEventListener('click', toggleSidebar);
         closeWorkspaceBtn.addEventListener('click', () => {
+            playSynthSound('click');
             workspaceSidebar.classList.add('hidden');
             localStorage.setItem('workspace-open', 'false');
         });
 
-        // Initialize state from local storage
         const savedPath = localStorage.getItem('workspace-path') || '';
         workspacePathInput.value = savedPath;
         if (localStorage.getItem('workspace-open') !== 'false') {
             workspaceSidebar.classList.remove('hidden');
-            // We call loadWorkspace at the end after everything is loaded
         }
 
         const workspaceHomeBtn = document.getElementById('workspace-home-btn');
         workspaceHomeBtn.addEventListener('click', async () => {
-            // Ask backend for project root
+            playSynthSound('click');
             try {
                 const res = await fetch('/api/fs/project-root');
                 const data = await res.json();
@@ -761,18 +1033,23 @@
             }
         });
 
-        // Add auto-sync button next to home
         const syncBtnHtml = `<button id="workspace-sync-btn" title="Sync with Active Instance" class="bg-slate-800 hover:bg-slate-700 text-purple-400 p-1.5 rounded border border-slate-700 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
         </button>`;
         workspaceHomeBtn.insertAdjacentHTML('afterend', syncBtnHtml);
         document.getElementById('workspace-sync-btn').addEventListener('click', () => {
-            workspaceHomeBtn.click(); // Reuse logic
+            workspaceHomeBtn.click();
         });
 
-        workspaceLoadBtn.addEventListener('click', () => loadWorkspace(workspacePathInput.value));
+        workspaceLoadBtn.addEventListener('click', () => {
+            playSynthSound('click');
+            loadWorkspace(workspacePathInput.value);
+        });
         workspacePathInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') loadWorkspace(workspacePathInput.value);
+            if (e.key === 'Enter') {
+                playSynthSound('click');
+                loadWorkspace(workspacePathInput.value);
+            }
         });
 
         async function loadWorkspace(dir = '') {
@@ -791,7 +1068,10 @@
                 const upDiv = document.createElement('div');
                 upDiv.className = 'flex items-center gap-2 p-1.5 hover:bg-slate-800 rounded cursor-pointer text-cyan-400';
                 upDiv.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg> .. (Up)';
-                upDiv.onclick = () => loadWorkspace(upPath);
+                upDiv.onclick = () => {
+                    playSynthSound('click');
+                    loadWorkspace(upPath);
+                };
                 fileTree.appendChild(upDiv);
 
                 data.items.forEach(item => {
@@ -799,10 +1079,16 @@
                     itemDiv.className = 'flex items-center gap-2 p-1.5 hover:bg-slate-800 rounded cursor-pointer truncate';
                     if (item.isDirectory) {
                         itemDiv.innerHTML = `<svg class="w-4 h-4 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg> <span class="text-slate-300 hover:text-white truncate">${item.name}</span>`;
-                        itemDiv.onclick = () => loadWorkspace(item.path);
+                        itemDiv.onclick = () => {
+                            playSynthSound('click');
+                            loadWorkspace(item.path);
+                        };
                     } else {
                         itemDiv.innerHTML = `<svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> <span class="text-slate-400 hover:text-cyan-300 truncate">${item.name}</span>`;
-                        itemDiv.onclick = () => openFileModal(item.path, item.name);
+                        itemDiv.onclick = () => {
+                            playSynthSound('click');
+                            openFileModal(item.path, item.name);
+                        };
                     }
                     fileTree.appendChild(itemDiv);
                 });
@@ -812,52 +1098,195 @@
             }
         }
 
-        async function openFileModal(filePath, fileName) {
-            let modal = document.getElementById('file-modal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'file-modal';
-                modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden';
-                modal.innerHTML = `
-                    <div class="glass-panel w-[90vw] max-w-5xl h-[80vh] flex flex-col rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl relative">
-                        <div class="flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800">
-                            <h3 id="file-modal-title" class="font-bold text-cyan-400 font-mono truncate mr-4"></h3>
-                            <button onclick="document.getElementById('file-modal').classList.add('hidden')" class="text-slate-400 hover:text-red-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-                        </div>
-                        <div class="flex-1 overflow-auto p-4 bg-[#0f172a]">
-                            <pre><code id="file-modal-content" class="text-sm font-mono text-slate-300"></code></pre>
-                        </div>
-                        <div class="p-4 bg-slate-900 border-t border-slate-800 flex justify-end gap-2">
-                            <button id="file-modal-send-btn" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded font-bold shadow-lg text-sm uppercase tracking-wide">Inject to Chat</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-            }
+        // Monaco Editor Integration inside Workspace explorer modal
+        let monacoEditorInstance = null;
+        let currentOpenFilePath = null;
 
+        function getLanguageFromExtension(fileName) {
+            const ext = fileName.split('.').pop().toLowerCase();
+            const map = {
+                'js': 'javascript',
+                'jsx': 'javascript',
+                'ts': 'typescript',
+                'tsx': 'typescript',
+                'json': 'json',
+                'html': 'html',
+                'htm': 'html',
+                'css': 'css',
+                'md': 'markdown',
+                'py': 'python',
+                'sh': 'shell',
+                'bat': 'bat',
+                'yml': 'yaml',
+                'yaml': 'yaml',
+                'xml': 'xml',
+                'sql': 'sql',
+                'txt': 'plaintext'
+            };
+            return map[ext] || 'plaintext';
+        }
+
+        async function saveCurrentFile() {
+            if (!currentOpenFilePath || !monacoEditorInstance) return;
+            const saveStatus = document.getElementById('file-save-status');
+            const saveBtn = document.getElementById('editor-panel-save-btn');
+            
+            saveStatus.innerText = '(Saving...)';
+            saveStatus.className = 'text-amber-400 text-xs font-mono ml-2 animate-pulse';
+            saveBtn.disabled = true;
+            
             try {
-                document.getElementById('file-modal-content').innerText = 'Loading...';
-                modal.classList.remove('hidden');
-                document.getElementById('file-modal-title').innerText = fileName;
+                const content = monacoEditorInstance.getValue();
+                const res = await fetch('/api/fs/write', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: currentOpenFilePath, content })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    saveStatus.innerText = '(Saved successfully)';
+                    saveStatus.className = 'text-emerald-400 text-xs font-mono ml-2';
+                    playSynthSound('success');
+                    setTimeout(() => {
+                        if (saveStatus.innerText === '(Saved successfully)') {
+                            saveStatus.innerText = '';
+                        }
+                    }, 3000);
+                } else {
+                    throw new Error(data.error || 'Failed to save');
+                }
+            } catch (e) {
+                saveStatus.innerText = `(Error: ${e.message})`;
+                saveStatus.className = 'text-red-400 text-xs font-mono ml-2';
+                playSynthSound('warning');
+            } finally {
+                saveBtn.disabled = false;
+            }
+        }
+
+        async function openFileModal(filePath, fileName) {
+            const panel = document.getElementById('editor-dock-panel');
+            const titleEl = document.getElementById('editor-panel-title');
+            const saveStatus = document.getElementById('file-save-status');
+            const saveBtn = document.getElementById('editor-panel-save-btn');
+            const sendBtn = document.getElementById('editor-panel-send-btn');
+            const closeBtn = document.getElementById('close-editor-panel-btn');
+            
+            try {
+                currentOpenFilePath = filePath;
+                saveStatus.innerText = '';
+                
+                // Show editor panel with GSAP smooth width squeeze
+                if (panel.classList.contains('hidden')) {
+                    panel.classList.remove('hidden');
+                    gsap.fromTo(panel, 
+                        { width: 0 }, 
+                        { width: "45vw", duration: 0.5, ease: "power3.out" }
+                    );
+                }
+                
+                titleEl.innerText = fileName;
                 
                 const res = await fetch(`/api/fs/read?path=${encodeURIComponent(filePath)}`);
                 const data = await res.json();
                 
                 if (data.error) {
-                    document.getElementById('file-modal-content').innerText = 'Error reading file: ' + data.error;
-                    document.getElementById('file-modal-send-btn').onclick = null;
+                    document.getElementById('monaco-container').innerHTML = `<div class="p-8 text-red-400 font-mono text-center">Error reading file: ${data.error}</div>`;
+                    sendBtn.onclick = null;
                 } else {
-                    document.getElementById('file-modal-content').innerText = data.content;
-                    document.getElementById('file-modal-send-btn').onclick = () => {
+                    const lang = getLanguageFromExtension(fileName);
+                    
+                    // Dynamically load and configure Monaco
+                    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+                    
+                    require(['vs/editor/editor.main'], function () {
+                        const container = document.getElementById('monaco-container');
+                        container.innerHTML = ''; // Clear loader
+                        
+                        if (monacoEditorInstance) {
+                            monacoEditorInstance.dispose();
+                        }
+                        
+                        // Register vs-antigravity custom transparent theme
+                        monaco.editor.defineTheme('vs-antigravity', {
+                            base: 'vs-dark',
+                            inherit: true,
+                            rules: [
+                                { token: 'keyword', foreground: 'a855f7', fontStyle: 'bold' },
+                                { token: 'comment', foreground: '64748b', fontStyle: 'italic' },
+                                { token: 'string', foreground: '0ea5e9' },
+                                { token: 'identifier', foreground: 'e2e8f0' },
+                                { token: 'number', foreground: '38bdf8' }
+                            ],
+                            colors: {
+                                'editor.background': '#0f172a80', // semi-transparent hex (rgba overlay behavior)
+                                'editor.lineHighlightBackground': '#1e293b50',
+                                'editorLineNumber.foreground': '#64748b',
+                                'editorLineNumber.activeForeground': '#0ea5e9',
+                                'editor.selectionBackground': '#a855f733'
+                            }
+                        });
+                        
+                        monacoEditorInstance = monaco.editor.create(container, {
+                            value: data.content,
+                            language: lang,
+                            theme: 'vs-antigravity',
+                            automaticLayout: true,
+                            tabSize: 4,
+                            fontSize: 13,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            minimap: { enabled: true },
+                            padding: { top: 10 },
+                            background: 'transparent'
+                        });
+
+                        monacoEditorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
+                            saveCurrentFile();
+                        });
+                    });
+
+                    sendBtn.onclick = () => {
+                        playSynthSound('click');
                         const input = document.getElementById('chat-input');
-                        input.value = `File: ${fileName}\n\`\`\`\n${data.content.substring(0, 50000)}\n\`\`\`\n` + input.value;
-                        modal.classList.add('hidden');
+                        const fileContent = monacoEditorInstance ? monacoEditorInstance.getValue() : data.content;
+                        input.value = `File: ${fileName}\n\`\`\`\n${fileContent.substring(0, 50000)}\n\`\`\`\n` + input.value;
+                        if (typeof autoResizeChatInput === 'function') autoResizeChatInput();
+                        
+                        // Hide editor panel with GSAP smooth squeeze-out
+                        gsap.to(panel, {
+                            width: 0,
+                            duration: 0.4,
+                            ease: "power3.in",
+                            onComplete: () => {
+                                panel.classList.add('hidden');
+                                gsap.set(panel, { width: "45vw" });
+                            }
+                        });
                         input.focus();
                     };
                 }
             } catch (e) {
-                document.getElementById('file-modal-content').innerText = 'Error: ' + e.message;
+                document.getElementById('monaco-container').innerHTML = `<div class="p-8 text-red-400 font-mono text-center">Error: ${e.message}</div>`;
             }
+            
+            // Set up save and close handlers
+            saveBtn.onclick = () => {
+                saveCurrentFile();
+            };
+            
+            closeBtn.onclick = () => {
+                playSynthSound('click');
+                gsap.to(panel, {
+                    width: 0,
+                    duration: 0.4,
+                    ease: "power3.in",
+                    onComplete: () => {
+                        panel.classList.add('hidden');
+                        gsap.set(panel, { width: "45vw" });
+                    }
+                });
+            };
         }
 
         loadProjects();
@@ -866,7 +1295,6 @@
         async function initializeWorkspace() {
             if (localStorage.getItem('workspace-open') !== 'false') {
                 try {
-                    // Always auto-sync with the active instance on load
                     const rootRes = await fetch('/api/fs/project-root');
                     const rootData = await rootRes.json();
                     if (rootData.root) {

@@ -7,9 +7,25 @@ import labcorePkg from 'labcore-tunnel';
 const { createTunnel } = labcorePkg;
 import fs from 'fs/promises';
 import os from 'os';
+import * as db from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Determinar el directorio base para guardar archivos persistentes (DB, logs)
+let baseDir = process.cwd();
+if (process.execPath && !process.execPath.toLowerCase().endsWith('node.exe') && !process.execPath.toLowerCase().endsWith('node')) {
+    baseDir = path.dirname(process.execPath);
+}
+
+async function getActiveProjectTitle(agController) {
+    if (!agController || !agController.page) return null;
+    try {
+        return await agController.page.title();
+    } catch (e) {
+        return null;
+    }
+}
 
 export function startWebServer(agController, port = 8080) {
     const app = express();
@@ -94,6 +110,15 @@ export function startWebServer(agController, port = 8080) {
         if (!text && (!images || images.length === 0)) return res.status(400).json({ error: 'Missing content' });
 
         try {
+            const title = await getActiveProjectTitle(agController);
+            if (title) {
+                let logText = text || '';
+                if (images && images.length > 0) {
+                    logText += `\n\n[Injected ${images.length} Image(s)]`;
+                }
+                await db.appendMessage(title, 'user', logText);
+            }
+
             await agController.sendInstruction(text, images);
             res.json({ success: true });
         } catch (e) {
@@ -107,8 +132,23 @@ export function startWebServer(agController, port = 8080) {
     });
 
     app.get('/api/history', async (req, res) => {
-        const messages = await agController.getAllMessages();
-        res.json({ messages });
+        try {
+            let messages = [];
+            const title = await getActiveProjectTitle(agController);
+            if (title) {
+                messages = await db.getHistory(title);
+            }
+            if (messages.length === 0) {
+                messages = await agController.getAllMessages();
+                if (title && messages.length > 0) {
+                    await db.setHistory(title, messages);
+                }
+            }
+            res.json({ messages });
+        } catch (e) {
+            console.error('[API] Error loading history:', e);
+            res.status(500).json({ error: e.message });
+        }
     });
 
     app.post('/api/set_project', async (req, res) => {
@@ -178,6 +218,22 @@ export function startWebServer(agController, port = 8080) {
             res.status(500).json({ error: e.message });
         }
     });
+
+    app.post('/api/fs/write', async (req, res) => {
+        try {
+            const { path: targetPath, content } = req.body;
+
+            if (!isPathAllowed(targetPath)) {
+                return res.status(403).json({ error: 'Access to this file is restricted by security policy.' });
+            }
+
+            await fs.writeFile(targetPath, content, 'utf-8');
+            res.json({ success: true });
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
 
     app.get('/api/fs/project-root', async (req, res) => {
         let root = null;
@@ -256,7 +312,7 @@ export function startWebServer(agController, port = 8080) {
                         if (msg.text().startsWith('AG_DEBUG_DUMP:')) {
                             const data = msg.text().replace('AG_DEBUG_DUMP:', '');
                             try {
-                                await fs.writeFile(path.join(__dirname, '../../debug.json'), data, 'utf-8');
+                                await fs.writeFile(path.join(baseDir, 'debug.json'), data, 'utf-8');
                             } catch (e) { }
                         }
                     });
@@ -316,13 +372,36 @@ export function startWebServer(agController, port = 8080) {
 
     io.on('connection', async (socket) => {
         console.log('[Socket] Web client connected');
-        // Send initial history if a project is selected
-        const msgs = await agController.getAllMessages();
-        socket.emit('history', msgs);
+        try {
+            let msgs = [];
+            const title = await getActiveProjectTitle(agController);
+            if (title) {
+                msgs = await db.getHistory(title);
+            }
+            if (msgs.length === 0) {
+                msgs = await agController.getAllMessages();
+                if (title && msgs.length > 0) {
+                    await db.setHistory(title, msgs);
+                }
+            }
+            socket.emit('history', msgs);
+        } catch (e) {
+            console.error('[Socket] Error loading initial history:', e.message);
+            const msgs = await agController.getAllMessages();
+            socket.emit('history', msgs);
+        }
     });
 
-    // Modify Antigravity's callback to emit to Socket.IO
-    agController.setOnNewMessageCallback((text) => {
+    // Modify Antigravity's callback to emit to Socket.IO and write to DB
+    agController.setOnNewMessageCallback(async (text) => {
+        try {
+            const title = await getActiveProjectTitle(agController);
+            if (title) {
+                await db.appendMessage(title, 'assistant', text);
+            }
+        } catch (e) {
+            console.error('[Watcher] Failed to write new message to DB:', e.message);
+        }
         io.emit('new_message', { text, role: 'assistant' });
     });
 
