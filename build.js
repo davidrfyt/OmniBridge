@@ -41,7 +41,16 @@ import('rcedit').then(async (rceditModule) => {
             console.error('rcedit no exportó una función:', rceditModule);
             process.exit(1);
         }
-        await inject('OmniBridge.exe', { icon: 'logo.ico' });
+        await inject('OmniBridge.exe', {
+            icon: 'logo.ico',
+            'version-string': {
+                CompanyName: 'LabCore',
+                FileDescription: 'OmniBridge Control Interface',
+                ProductName: 'OmniBridge',
+                OriginalFilename: 'OmniBridge.exe',
+                LegalCopyright: 'Copyright © 2026 LabCore'
+            }
+        });
         process.exit(0);
     } catch (e) {
         console.error('Detalle del fallo de inyección:', e);

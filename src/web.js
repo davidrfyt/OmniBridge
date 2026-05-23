@@ -27,7 +27,7 @@ async function getActiveProjectTitle(agController) {
     }
 }
 
-export function startWebServer(agController, port = 8080) {
+export function startWebServer(agController, port = 8080, launchLocalOnly = false) {
     const app = express();
     const httpServer = createServer(app);
     const io = new Server(httpServer);
@@ -371,7 +371,6 @@ export function startWebServer(agController, port = 8080) {
     });
 
     io.on('connection', async (socket) => {
-        console.log('[Socket] Web client connected');
         try {
             let msgs = [];
             const title = await getActiveProjectTitle(agController);
@@ -409,13 +408,16 @@ export function startWebServer(agController, port = 8080) {
         io.emit('retry_action', { message: 'The Watcher has automatically triggered the "Retry" button.' });
     });
 
-    // Auto-start primary tunnel
-    createTunnel({ port, protocol: 'http' }).then(tunnel => {
-        activeTunnels.push({ instance: tunnel, url: tunnel.url, port, isPrimary: true });
-        console.log(`🚀 [TUNNEL] Primary external URL active: ${tunnel.url}`);
-    }).catch(e => {
-        console.error('[ERROR] Failed to establish primary tunnel:', e.message);
-    });
+    // Auto-start primary tunnel if not launchLocalOnly
+    if (launchLocalOnly) {
+        console.log('🔒 [TUNNEL] Exposición exterior desactivada. OmniBridge está corriendo únicamente en localhost.');
+    } else {
+        createTunnel({ port, protocol: 'http' }).then(tunnel => {
+            activeTunnels.push({ instance: tunnel, url: tunnel.url, port, isPrimary: true });
+        }).catch(e => {
+            console.error('[ERROR] Failed to establish primary tunnel:', e.message);
+        });
+    }
 
     httpServer.listen(port, () => {
         console.log(`🌐 [WEB] OmniBridge Server live at http://localhost:${port}`);
