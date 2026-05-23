@@ -410,7 +410,7 @@ export function startWebServer(agController, port = 8080, launchLocalOnly = fals
 
     // Auto-start primary tunnel if not launchLocalOnly
     if (launchLocalOnly) {
-        console.log('🔒 [TUNNEL] Exposición exterior desactivada. OmniBridge está corriendo únicamente en localhost.');
+        console.log('🔒 [TUNNEL] External exposure disabled. OmniBridge is running exclusively on localhost.');
     } else {
         createTunnel({ port, protocol: 'http' }).then(tunnel => {
             activeTunnels.push({ instance: tunnel, url: tunnel.url, port, isPrimary: true });

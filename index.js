@@ -51,17 +51,17 @@ async function bootstrap() {
     console.log('       🌐 OMNIBRIDGE INITIALIZATION 🌐       ');
     console.log('=================================================\x1b[0m\n');
 
-    console.log('\x1b[33m>> Seleccione el modo de red para OmniBridge:\x1b[0m\n');
-    console.log('  \x1b[32m[1] 🔒 Modo Local (Localhost only)\x1b[0m');
-    console.log('      - Ejecución 100% privada y segura en tu máquina.');
-    console.log('      - No se expone ningún puerto al exterior.');
-    console.log('      - Ideal para máxima velocidad y desarrollo privado.\n');
-    console.log('  \x1b[34m[2] 🚀 Modo Público (Túnel Exterior)\x1b[0m');
-    console.log('      - Crea un túnel HTTPS seguro usando Labcore Tunnel.');
-    console.log('      - Permite acceder a OmniBridge desde cualquier lugar.');
-    console.log('      - Ideal para integraciones externas y control remoto.\n');
+    console.log('\x1b[33m>> Select the network mode for OmniBridge:\x1b[0m\n');
+    console.log('  \x1b[32m[1] 🔒 Local Mode (Localhost only)\x1b[0m');
+    console.log('      - 100% private and secure execution on your machine.');
+    console.log('      - No ports exposed to the outside.');
+    console.log('      - Ideal for maximum speed and private development.\n');
+    console.log('  \x1b[34m[2] 🚀 Public Mode (External Tunnel)\x1b[0m');
+    console.log('      - Establishes a secure HTTPS tunnel via Labcore.');
+    console.log('      - Allows remote access to OmniBridge from anywhere.');
+    console.log('      - Perfect for external webhooks and remote control.\n');
 
-    const input = await askQuestion('\x1b[35m👉 Seleccione una opción [1 o 2] (Por defecto 2): \x1b[0m');
+    const input = await askQuestion('\x1b[35m👉 Select an option [1 or 2] (Default 2): \x1b[0m');
     const launchLocalOnly = input.trim() === '1';
 
     console.log('\n=================================================');
@@ -69,9 +69,9 @@ async function bootstrap() {
     console.log('=================================================\n');
 
     if (launchLocalOnly) {
-        console.log('>> [BOOT] Iniciando en modo LOCAL (seguro)...');
+        console.log('>> [BOOT] Launching in LOCAL mode (secure)...');
     } else {
-        console.log('>> [BOOT] Iniciando en modo PÚBLICO (túnel)...');
+        console.log('>> [BOOT] Launching in PUBLIC mode (tunnel)...');
     }
 
     const agController = new AntigravityController();
