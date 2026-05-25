@@ -20,16 +20,46 @@
             --glass-border: rgba(255, 255, 255, 0.08);
             --neon-blue: #0ea5e9;
             --neon-purple: #a855f7;
+            --bg-gradient: radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%),
+                #020617;
+        }
+
+        /* Themes definitions */
+        body.theme-cyberpunk {
+            --glass-bg: rgba(15, 23, 42, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --neon-blue: #0ea5e9;
+            --neon-purple: #a855f7;
+            --bg-gradient: radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%),
+                #020617;
+        }
+
+        body.theme-obsidian {
+            --glass-bg: rgba(10, 10, 11, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --neon-blue: #f8fafc;
+            --neon-purple: #94a3b8;
+            --bg-gradient: linear-gradient(135deg, #09090b, #18181b, #09090b);
+        }
+
+        body.theme-astro {
+            --glass-bg: rgba(10, 15, 30, 0.7);
+            --glass-border: rgba(99, 102, 241, 0.18);
+            --neon-blue: #6366f1;
+            --neon-purple: #ec4899;
+            --bg-gradient: radial-gradient(circle at 30% 20%, rgba(99, 102, 241, 0.25), transparent 45%),
+                radial-gradient(circle at 70% 80%, rgba(236, 72, 153, 0.18), transparent 45%),
+                #03001e;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%),
-                #020617;
+            background: var(--bg-gradient);
             background-attachment: fixed;
             color: #e2e8f0;
-            transition: background 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: background 1.5s cubic-bezier(0.25, 1, 0.5, 1), color 0.3s ease;
         }
 
         /* Ambient Glow States */
@@ -194,6 +224,15 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+            <div class="flex items-center gap-1.5 bg-slate-800/50 p-1.5 rounded-lg border border-slate-700/50">
+                <span class="text-xs font-bold text-slate-400 px-1 uppercase tracking-wider hidden xl:inline">Theme:</span>
+                <select id="theme-select" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-center text-cyan-300 font-mono focus:outline-none focus:border-cyan-500 font-medium cursor-pointer">
+                    <option value="theme-cyberpunk">Cyberpunk Neon</option>
+                    <option value="theme-obsidian">Sleek Obsidian</option>
+                    <option value="theme-astro">Astro Space</option>
+                </select>
+            </div>
+
             <div class="flex items-center gap-2 bg-slate-800/50 p-1.5 rounded-lg border border-slate-700/50">
                 <select id="tunnel-proto" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-center text-cyan-300 font-mono focus:outline-none focus:border-cyan-500">
                     <option value="http">HTTP</option>
@@ -402,8 +441,27 @@
         const projectSelect = document.getElementById('project-select');
         const tunnelBtn = document.getElementById('tunnel-btn');
         const tunnelsContainer = document.getElementById('tunnels-container');
+        const themeSelect = document.getElementById('theme-select');
 
         marked.setOptions({ breaks: true });
+
+        // Theme selector logic
+        const savedTheme = localStorage.getItem('omni-theme') || 'theme-cyberpunk';
+        
+        function applyTheme(themeName) {
+            document.body.classList.remove('theme-cyberpunk', 'theme-obsidian', 'theme-astro');
+            document.body.classList.add(themeName);
+            if (themeSelect) themeSelect.value = themeName;
+            localStorage.setItem('omni-theme', themeName);
+        }
+        
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (e) => {
+                playSynthSound('click');
+                applyTheme(e.target.value);
+            });
+        }
+        applyTheme(savedTheme);
 
         // Set initial body state
         document.body.classList.add('state-idle');
@@ -529,6 +587,38 @@
 
         // Ambient interactivity (3D parallax effects completely removed)
 
+        function formatMessageText(text) {
+            if (!text) return '';
+            
+            // Helper to normalize paths to forward slashes
+            const cleanPath = (p) => p.replace(/\\/g, '/');
+
+            // 1. Match markdown images with file:/// prefix or drive letter:
+            // ![alt](file:///C:\path\to\img.png) or ![alt](file:///C:/path/to/img.png)
+            // ![alt](C:\path\to\img.png) or ![alt](C:/path/to/img.png)
+            let formatted = text.replace(/(!\[.*?\]\()(file:\/\/\/)?([A-Za-z]:[\\/][^)]+)(\))/g, (match, prefix, fileProtocol, filePath, suffix) => {
+                const normalizedPath = cleanPath(filePath);
+                return `${prefix}/api/fs/image?path=${encodeURIComponent(normalizedPath)}${suffix}`;
+            });
+            
+            // 2. Match markdown links with file:/// prefix or drive letter:
+            // [alt](file:///C:\path\to\img.png) or [alt](file:///C:/path/to/img.png)
+            // [alt](C:\path\to\img.png) or [alt](C:/path/to/img.png)
+            formatted = formatted.replace(/(\[.*?\]\()(file:\/\/\/)?([A-Za-z]:[\\/][^)]+)(\))/g, (match, prefix, fileProtocol, filePath, suffix) => {
+                const normalizedPath = cleanPath(filePath);
+                return `${prefix}/api/fs/image?path=${encodeURIComponent(normalizedPath)}${suffix}`;
+            });
+            
+            // 3. Match HTML img tags:
+            // <img src="file:///C:\path\to\img.png"> or <img src="C:\path\to\img.png">
+            formatted = formatted.replace(/(<img\s+[^>]*src=["'])(file:\/\/\/)?([A-Za-z]:[\\/][^"']+)(["'])/g, (match, prefix, fileProtocol, filePath, suffix) => {
+                const normalizedPath = cleanPath(filePath);
+                return `${prefix}/api/fs/image?path=${encodeURIComponent(normalizedPath)}${suffix}`;
+            });
+
+            return formatted;
+        }
+
         // Chat message staggering and dynamic addition
         function addMessage(text, role) {
             const div = document.createElement('div');
@@ -548,13 +638,18 @@
             const content = document.createElement('div');
             content.className = 'markdown-body';
 
-            if (!isUser && !text.includes('```')) {
-                content.innerHTML = `<pre style="background:transparent!important; border:none; padding:0; color:inherit; font-family:'Inter',sans-serif; white-space:pre-wrap;">${text}</pre>`;
+            const hasMarkdown = text.includes('```') || text.includes('![') || text.includes('**') || text.includes('###') || (text.includes('[') && text.includes(']'));
+
+            if (!isUser && !hasMarkdown) {
+                const pre = document.createElement('pre');
+                pre.style.cssText = "background:transparent!important; border:none; padding:0; color:inherit; font-family:'Inter',sans-serif; white-space:pre-wrap;";
+                pre.textContent = text;
+                content.appendChild(pre);
             } else if (!isUser) {
-                content.innerHTML = marked.parse(text);
+                content.innerHTML = marked.parse(formatMessageText(text));
             } else {
                 content.style.whiteSpace = 'pre-wrap';
-                content.innerHTML = text;
+                content.textContent = text;
             }
 
             div.appendChild(header);
@@ -598,9 +693,60 @@
         socket.on('new_message', (msg) => {
             if (msg.text && msg.role === 'assistant') {
                 removeThinking();
-                document.body.className = "min-h-screen flex flex-col h-screen overflow-hidden state-idle";
+                const streamingDiv = document.getElementById('streaming-message-bubble');
+                if (streamingDiv) streamingDiv.remove();
+                
+                const savedTheme = localStorage.getItem('omni-theme') || 'theme-cyberpunk';
+                document.body.className = `min-h-screen flex flex-col h-screen overflow-hidden state-idle ${savedTheme}`;
                 addMessage(msg.text, 'assistant');
                 playSynthSound('success');
+            }
+        });
+
+        socket.on('streaming_message', (msg) => {
+            if (msg.text && msg.role === 'assistant') {
+                removeThinking();
+                const savedTheme = localStorage.getItem('omni-theme') || 'theme-cyberpunk';
+                document.body.className = `min-h-screen flex flex-col h-screen overflow-hidden state-thinking ${savedTheme}`;
+                
+                let streamingDiv = document.getElementById('streaming-message-bubble');
+                if (!streamingDiv) {
+                    streamingDiv = document.createElement('div');
+                    streamingDiv.id = 'streaming-message-bubble';
+                    streamingDiv.className = 'z-10 max-w-4xl w-full p-5 rounded-2xl glass-panel msg-assistant mr-auto opacity-0';
+                    
+                    const header = document.createElement('div');
+                    header.className = 'text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 text-cyan-400';
+                    header.innerHTML = `<svg class="w-4 h-4 animate-pulse text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> Antigravity AI <span class="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[9px] font-mono px-1.5 py-0.5 rounded tracking-normal animate-pulse uppercase ml-1">Streaming</span>`;
+                    
+                    const content = document.createElement('div');
+                    content.className = 'markdown-body streaming-content';
+                    
+                    streamingDiv.appendChild(header);
+                    streamingDiv.appendChild(content);
+                    chatContainer.appendChild(streamingDiv);
+                    
+                    gsap.fromTo(streamingDiv, 
+                        { opacity: 0, y: 15 }, 
+                        { opacity: 1, y: 0, duration: 0.4 }
+                    );
+                }
+                
+                const contentDiv = streamingDiv.querySelector('.streaming-content');
+                if (contentDiv) {
+                    const hasMarkdown = msg.text.includes('```') || msg.text.includes('![') || msg.text.includes('**') || msg.text.includes('###') || (msg.text.includes('[') && msg.text.includes(']'));
+                    if (!hasMarkdown) {
+                        contentDiv.innerHTML = '';
+                        const pre = document.createElement('pre');
+                        pre.style.cssText = "background:transparent!important; border:none; padding:0; color:inherit; font-family:'Inter',sans-serif; white-space:pre-wrap;";
+                        pre.textContent = msg.text;
+                        contentDiv.appendChild(pre);
+                    } else {
+                        contentDiv.innerHTML = marked.parse(formatMessageText(msg.text));
+                    }
+                }
+                
+                chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'auto' });
             }
         });
 
@@ -1052,6 +1198,46 @@
             }
         });
 
+        function getFileIconAndColor(fileName) {
+            const ext = fileName.split('.').pop().toLowerCase();
+            let color = 'text-slate-400';
+            let svgPath = 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
+            
+            if (['js', 'cjs', 'mjs'].includes(ext)) {
+                color = 'text-yellow-400';
+                svgPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+            } else if (['ts', 'tsx'].includes(ext)) {
+                color = 'text-sky-400';
+                svgPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+            } else if (['jsx'].includes(ext)) {
+                color = 'text-cyan-400';
+                svgPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+            } else if (['html', 'htm'].includes(ext)) {
+                color = 'text-orange-500';
+                svgPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+            } else if (['css', 'scss', 'less'].includes(ext)) {
+                color = 'text-cyan-400';
+                svgPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+            } else if (['json', 'lock'].includes(ext)) {
+                color = 'text-amber-500';
+                svgPath = 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
+            } else if (['md', 'txt'].includes(ext)) {
+                color = 'text-emerald-400';
+                svgPath = 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
+            } else if (['py'].includes(ext)) {
+                color = 'text-emerald-500';
+                svgPath = 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4';
+            } else if (['sh', 'bat', 'cmd'].includes(ext)) {
+                color = 'text-rose-400';
+                svgPath = 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z';
+            } else if (fileName.startsWith('.env')) {
+                color = 'text-amber-400';
+                svgPath = 'M15 7a2 2 0 012 2m-5-4v12m0-12v12m0 0l-3-3m3 3l3-3';
+            }
+            
+            return `<svg class="w-4 h-4 ${color} shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${svgPath}"></path></svg>`;
+        }
+
         async function loadWorkspace(dir = '') {
             try {
                 fileTree.innerHTML = '<div class="text-center text-slate-500 mt-10"><svg class="animate-spin w-5 h-5 mx-auto mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading...</div>';
@@ -1084,7 +1270,8 @@
                             loadWorkspace(item.path);
                         };
                     } else {
-                        itemDiv.innerHTML = `<svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> <span class="text-slate-400 hover:text-cyan-300 truncate">${item.name}</span>`;
+                        const iconHtml = getFileIconAndColor(item.name);
+                        itemDiv.innerHTML = `${iconHtml} <span class="text-slate-400 hover:text-cyan-300 truncate">${item.name}</span>`;
                         itemDiv.onclick = () => {
                             playSynthSound('click');
                             openFileModal(item.path, item.name);
@@ -1239,6 +1426,14 @@
                             minimap: { enabled: true },
                             padding: { top: 10 },
                             background: 'transparent'
+                        });
+
+                        monacoEditorInstance.onDidChangeModelContent(() => {
+                            const saveStatus = document.getElementById('file-save-status');
+                            if (saveStatus && saveStatus.innerText !== '(Saving...)') {
+                                saveStatus.innerText = '(Unsaved changes)';
+                                saveStatus.className = 'text-amber-500 text-xs font-mono ml-2';
+                            }
                         });
 
                         monacoEditorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {

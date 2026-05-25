@@ -68,6 +68,7 @@ export function startWebServer(agController, port = 8080, launchLocalOnly = fals
     });
 
     app.use(express.static(path.join(__dirname, 'public')));
+    app.use('/uploads', express.static(path.join(baseDir, 'uploads')));
     app.use(express.json({ limit: '50mb' }));
 
     let activeTunnels = [];
@@ -159,18 +160,45 @@ export function startWebServer(agController, port = 8080, launchLocalOnly = fals
 
     // Safety check to prevent reading sensitive system files or credentials
     const isPathAllowed = (targetPath) => {
-        const absPath = path.resolve(targetPath).toLowerCase();
-        const forbidden = [
-            'c:\\windows',
-            'c:\\program files',
-            'c:\\programdata',
-            '\\appdata',
-            '\\.ssh',
-            '/etc',
-            '/var',
-            '/root'
-        ];
-        return !forbidden.some(f => absPath.includes(f));
+        if (!targetPath) return false;
+        try {
+            const resolvedPath = path.resolve(targetPath).toLowerCase().replace(/\\/g, '/');
+            
+            // 1. Blacklist check (Absolute system blockouts)
+            const forbidden = [
+                'c:/windows',
+                'c:/program files',
+                'c:/programdata',
+                '/.ssh',
+                '/etc',
+                '/var',
+                '/root'
+            ];
+            const hasForbidden = forbidden.some(f => resolvedPath.includes(f));
+            if (hasForbidden) return false;
+            
+            // Check appdata specifically: block unless it's the legitimate local Antigravity installation
+            const isAntigravityAppPath = resolvedPath.includes('/appdata/local/programs/antigravity');
+            if (resolvedPath.includes('/appdata') && !isAntigravityAppPath) {
+                return false;
+            }
+            
+            // 2. Whitelist check (Only allow user personal directory or specific development locations)
+            const userHome = os.homedir().toLowerCase().replace(/\\/g, '/');
+            const omniRoot = path.resolve(baseDir).toLowerCase().replace(/\\/g, '/');
+            const antigravityHome = path.join(os.homedir(), 'AppData/Local/Programs/Antigravity').toLowerCase().replace(/\\/g, '/');
+            
+            const allowedPrefixes = [
+                userHome,
+                omniRoot,
+                'd:/repositorios',
+                antigravityHome
+            ];
+            
+            return allowedPrefixes.some(prefix => resolvedPath === prefix || resolvedPath.startsWith(prefix + '/'));
+        } catch (e) {
+            return false;
+        }
     };
 
     app.get('/api/fs/ls', async (req, res) => {
@@ -231,6 +259,41 @@ export function startWebServer(agController, port = 8080, launchLocalOnly = fals
             res.json({ success: true });
         } catch (e) {
             res.status(500).json({ error: e.message });
+        }
+    });
+
+    app.get('/api/fs/image', async (req, res) => {
+        try {
+            const targetPath = req.query.path;
+
+            if (!isPathAllowed(targetPath)) {
+                console.error(`[FS SECURITY] Rejected access to image: ${targetPath}`);
+                return res.status(403).send('Access restricted by security policy.');
+            }
+
+            const ext = path.extname(targetPath).toLowerCase();
+            const mimeTypes = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp',
+                '.svg': 'image/svg+xml'
+            };
+            const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+            const content = await fs.readFile(targetPath);
+            
+            // Set permissive headers for maximum rendering fidelity and quick loading
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+            res.setHeader('Content-Type', contentType);
+            res.send(content);
+        } catch (e) {
+            console.error(`[FS ERROR] Failed to read image: ${req.query.path}. Error:`, e);
+            res.status(500).send(e.message);
         }
     });
 
@@ -404,6 +467,10 @@ export function startWebServer(agController, port = 8080, launchLocalOnly = fals
         io.emit('new_message', { text, role: 'assistant' });
     });
 
+    agController.setOnStreamingCallback((text) => {
+        io.emit('streaming_message', { text, role: 'assistant' });
+    });
+
     agController.setOnRetryCallback(() => {
         io.emit('retry_action', { message: 'The Watcher has automatically triggered the "Retry" button.' });
     });
@@ -418,6 +485,24 @@ export function startWebServer(agController, port = 8080, launchLocalOnly = fals
             console.error('[ERROR] Failed to establish primary tunnel:', e.message);
         });
     }
+
+    // Pre-sync history at startup to pre-download all assets
+    setTimeout(async () => {
+        try {
+            console.log('[BOOT] Pre-synchronizing active project message history...');
+            const title = await getActiveProjectTitle(agController);
+            if (title) {
+                // Force a fresh parse and download of all message attachments
+                const msgs = await agController.getAllMessages();
+                if (msgs.length > 0) {
+                    await db.setHistory(title, msgs);
+                    console.log(`[BOOT] Pre-synchronized history successfully! Saved ${msgs.length} messages.`);
+                }
+            }
+        } catch (e) {
+            console.error('[BOOT] Pre-synchronization failed:', e.message);
+        }
+    }, 2000);
 
     httpServer.listen(port, () => {
         console.log(`🌐 [WEB] OmniBridge Server live at http://localhost:${port}`);

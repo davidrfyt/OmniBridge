@@ -1,7 +1,132 @@
 import puppeteer from 'puppeteer-core';
 import dotenv from 'dotenv';
+import fs from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import axios from 'axios';
+import https from 'https';
 
 dotenv.config();
+
+let baseDir = process.cwd();
+if (process.execPath && !process.execPath.toLowerCase().endsWith('node.exe') && !process.execPath.toLowerCase().endsWith('node')) {
+    baseDir = path.dirname(process.execPath);
+}
+
+const httpsAgent = new https.Agent({  
+    rejectUnauthorized: false
+});
+
+const debugUploads = process.env.DEBUG_UPLOADS === 'true';
+
+function logUpload(message) {
+    if (debugUploads) {
+        console.log(message);
+    }
+}
+
+async function processLocalAttachments(text) {
+    if (!text) return text;
+    
+    // Catch any URL inside markdown image syntax: ![alt](url)
+    const markdownImageRegex = /!\[.*?\]\(([^)]+)\)/g;
+    
+    let modifiedText = text;
+    const uploadsDir = path.join(baseDir, 'uploads');
+    
+    try {
+        await fs.mkdir(uploadsDir, { recursive: true });
+    } catch (e) {
+        console.error('[Uploads] Failed to create uploads directory:', e.message);
+    }
+    
+    const matches = [...text.matchAll(markdownImageRegex)];
+    for (const m of matches) {
+        const url = m[1];
+        
+        // 1. Check if it is a local localhost web URL
+        if (/^(https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?)/.test(url)) {
+            try {
+                logUpload(`[Uploads] Intercepted local web image: ${url}`);
+                const response = await axios.get(url, { 
+                    responseType: 'arraybuffer',
+                    httpsAgent
+                });
+                
+                const buffer = Buffer.from(response.data);
+                const fileHash = crypto.createHash('md5').update(buffer).digest('hex');
+                
+                const contentType = response.headers['content-type'] || '';
+                let ext = '.png';
+                if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = '.jpg';
+                else if (contentType.includes('gif')) ext = '.gif';
+                else if (contentType.includes('webp')) ext = '.webp';
+                else if (contentType.includes('svg')) ext = '.svg';
+                else {
+                    try {
+                        const parsedUrl = new URL(url);
+                        const urlExt = path.extname(parsedUrl.pathname).toLowerCase();
+                        if (urlExt) ext = urlExt;
+                    } catch (e) {}
+                }
+                
+                const fileName = `${fileHash}${ext}`;
+                const destPath = path.join(uploadsDir, fileName);
+                
+                if (!existsSync(destPath)) {
+                    await fs.writeFile(destPath, buffer);
+                    logUpload(`[Uploads] Saved downloaded web image: ${destPath}`);
+                }
+                
+                const publicUrl = `/uploads/${fileName}`;
+                modifiedText = modifiedText.replaceAll(url, publicUrl);
+            } catch (err) {
+                console.error(`[Uploads] Failed to download local web image: ${url}. Error:`, err.message);
+            }
+        }
+        // 2. Check if it is a local physical file path
+        else if (url.includes(':/') || url.includes(':\\') || url.includes('%5C') || url.includes('file:///')) {
+            try {
+                const decodedPath = decodeURIComponent(url);
+                const driveIndex = decodedPath.search(/[A-Za-z]:/);
+                let cleanPath = decodedPath;
+                if (driveIndex !== -1) {
+                    cleanPath = decodedPath.substring(driveIndex);
+                }
+                
+                let normalizedPath = path.resolve(cleanPath);
+                
+                if (!existsSync(normalizedPath)) {
+                    const fixedPath = cleanPath.replace(/david\.gemini/i, 'DAVID/.gemini');
+                    const normalizedFixed = path.resolve(fixedPath);
+                    if (existsSync(normalizedFixed)) {
+                        normalizedPath = normalizedFixed;
+                    }
+                }
+                
+                if (existsSync(normalizedPath)) {
+                    const fileHash = crypto.createHash('md5').update(normalizedPath).digest('hex');
+                    const ext = path.extname(normalizedPath).toLowerCase();
+                    const fileName = `${fileHash}${ext}`;
+                    const destPath = path.join(uploadsDir, fileName);
+                    
+                    if (!existsSync(destPath)) {
+                        await fs.copyFile(normalizedPath, destPath);
+                        logUpload(`[Uploads] Copied physical attachment: ${normalizedPath} -> ${destPath}`);
+                    }
+                    
+                    const publicUrl = `/uploads/${fileName}`;
+                    modifiedText = modifiedText.replaceAll(url, publicUrl);
+                }
+            } catch (err) {
+                console.error(`[Uploads] Error processing physical attachment: ${url}. Error:`, err.message);
+            }
+        }
+    }
+    
+    return modifiedText;
+}
 
 export class AntigravityController {
     constructor() {
@@ -12,6 +137,7 @@ export class AntigravityController {
         this.lastKnownMessage = "";
         this.activeIndex = null; // Track the active project
         this.onNewMessageCallback = null;
+        this.onStreamingCallback = null;
         this.onRetryCallback = null;
         
         // DOM Selectors (might require adjustment depending on Antigravity version)
@@ -23,6 +149,10 @@ export class AntigravityController {
 
     setOnNewMessageCallback(cb) {
         this.onNewMessageCallback = cb;
+    }
+
+    setOnStreamingCallback(cb) {
+        this.onStreamingCallback = cb;
     }
 
     setOnRetryCallback(callback) {
@@ -116,10 +246,13 @@ export class AntigravityController {
                         // Message is still generating (it is changing)
                         lastDraft = currentText;
                         stableCount = 0;
+                        if (this.onStreamingCallback) {
+                            this.onStreamingCallback(currentText);
+                        }
                     } else {
                         // Message stopped changing
                         stableCount++;
-                        if (stableCount >= 2) { // 4 seconds passed (2 ticks of 2000ms) without changes -> assume completion
+                        if (stableCount >= 4) { // 4 seconds passed (4 ticks of 1000ms) without changes -> assume completion
                             this.lastKnownMessage = currentText;
                             if (this.onNewMessageCallback) {
                                 this.onNewMessageCallback(currentText);
@@ -130,7 +263,7 @@ export class AntigravityController {
             } catch (error) {
                 // Silence typical destroyed context errors (e.g., when page reloads)
             }
-        }, 2000);
+        }, 1000);
     }
 
     async getProjects() {
@@ -250,20 +383,86 @@ export class AntigravityController {
             }
 
             if (text) {
-                // Inyectar el texto instantáneamente conservando el formato multilínea y los saltos de línea
-                await this.page.evaluate((txt) => {
-                    const escapeHTML = (string) => {
-                        return string
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;')
-                            .replace(/"/g, '&quot;')
-                            .replace(/'/g, '&#039;');
-                    };
-                    const normalizedText = txt.replace(/\r\n/g, '\n');
-                    const html = escapeHTML(normalizedText).replace(/\n/g, '<br>');
-                    document.execCommand('insertHTML', false, html);
-                }, text);
+                // Inyectar el texto instantáneamente de forma segura e inmune a restricciones de Trusted Types
+                await this.page.evaluate((txt, selector) => {
+                    const input = document.querySelector(selector);
+                    if (!input) return;
+
+                    // Método A: Simular evento "paste" de texto plano (Moderno, Seguro y compatible con Trusted Types)
+                    try {
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.setData('text/plain', txt);
+                        
+                        const pasteEvent = new ClipboardEvent('paste', {
+                            clipboardData: dataTransfer,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        input.dispatchEvent(pasteEvent);
+                        
+                        // Si el pegado funcionó, la longitud del texto habrá incrementado
+                        if (input.innerText.trim().length > 0) {
+                            return;
+                        }
+                    } catch (e) {
+                        // Continuar con los fallbacks si falla
+                    }
+
+                    // Método B: Usar selección y NodeText directo en el cursor (Inmune a Trusted Types)
+                    try {
+                        input.focus();
+                        const selection = window.getSelection();
+                        if (selection.rangeCount) {
+                            selection.deleteFromDocument();
+                            const range = selection.getRangeAt(0);
+                            const textNode = document.createTextNode(txt);
+                            range.insertNode(textNode);
+                            range.setStartAfter(textNode);
+                            range.setEndAfter(textNode);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            
+                            // Notificar a frameworks como React/Vue de la actualización
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            return;
+                        }
+                    } catch (e) {
+                        // Continuar con fallback C
+                    }
+
+                    // Método C: Fallback clásico de execCommand con soporte dinámico para Trusted Types
+                    try {
+                        const escapeHTML = (string) => {
+                            return string
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/'/g, '&#039;');
+                        };
+                        const normalizedText = txt.replace(/\r\n/g, '\n');
+                        const html = escapeHTML(normalizedText).replace(/\n/g, '<br>');
+                        
+                        let trustedHtml = html;
+                        if (window.trustedTypes) {
+                            try {
+                                const policy = window.trustedTypes.defaultPolicy || 
+                                               window.trustedTypes.createPolicy('omnibridge-policy', {
+                                                   createHTML: (string) => string
+                                               });
+                                trustedHtml = policy.createHTML(html);
+                            } catch (e) {
+                                // Continuar con html normal si falla la política
+                            }
+                        }
+                        
+                        document.execCommand('insertHTML', false, trustedHtml);
+                    } catch (e) {
+                        // Si todo falla, escritura directa (last resort)
+                        input.innerText = txt;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }, text, this.SELECTORS.chatInput);
             }
 
             // Press Enter to send
@@ -321,7 +520,7 @@ export class AntigravityController {
         if (!this.page) return null;
         
         try {
-            // Extract the text of the last assistant message, filtering out thoughts
+            // Extract the text of the last assistant message, filtering out thoughts and capturing attachments
             const lastMessage = await this.page.evaluate((selectors) => {
                 const elements = Array.from(document.querySelectorAll(selectors.messages));
                 
@@ -331,9 +530,54 @@ export class AntigravityController {
                 });
                 
                 if (realMessages.length === 0) return null;
-                return realMessages[realMessages.length - 1].innerText;
+                const messageEl = realMessages[realMessages.length - 1];
+                
+                // Helper to extract text and dynamically parse attachments/images from elements
+                let text = messageEl.innerText;
+                
+                // 1. Search for actual <img> tags
+                const imgs = Array.from(messageEl.querySelectorAll('img'));
+                imgs.forEach(img => {
+                    const src = img.getAttribute('src');
+                    const alt = img.getAttribute('alt') || 'Image';
+                    if (src && !text.includes(src)) {
+                        text += `\n\n![${alt}](${src})`;
+                    }
+                });
+                
+                // 2. Search for local file links/anchors or elements with path data
+                const links = Array.from(messageEl.querySelectorAll('a, [data-path], [data-uri], [data-resource]'));
+                links.forEach(el => {
+                    const href = el.getAttribute('href') || el.getAttribute('data-path') || el.getAttribute('data-uri') || el.getAttribute('data-resource');
+                    if (href && (href.startsWith('file:///') || /^[A-Za-z]:[\\/]/.test(href))) {
+                        const isImage = /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(href);
+                        if (isImage && !text.includes(href)) {
+                            const alt = el.innerText.replace(/Review\n/g, '').trim() || 'Attachment';
+                            text += `\n\n![${alt}](${href})`;
+                        }
+                    }
+                });
+                
+                // 3. Deep scanner of all data attributes for hidden image links
+                const subEls = Array.from(messageEl.querySelectorAll('*'));
+                subEls.forEach(el => {
+                    if (!el.attributes) return;
+                    for (let i = 0; i < el.attributes.length; i++) {
+                        const attr = el.attributes[i];
+                        const val = attr.value;
+                        if (val && (val.startsWith('file:///') || /^[A-Za-z]:[\\/]/.test(val))) {
+                            const isImage = /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(val);
+                            if (isImage && !text.includes(val)) {
+                                text += `\n\n![Attachment](${val})`;
+                            }
+                        }
+                    }
+                });
+                
+                return text;
             }, this.SELECTORS);
-            return lastMessage;
+            
+            return await processLocalAttachments(lastMessage);
         } catch (error) {
             if (!error.message.includes('detached Frame')) {
                 console.error('[ERROR] Reading response failed:', error);
@@ -348,11 +592,64 @@ export class AntigravityController {
         }
         if (!this.page) return [];
         try {
-            return await this.page.evaluate((selectors) => {
+            const rawMessages = await this.page.evaluate((selectors) => {
                 const elements = Array.from(document.querySelectorAll(selectors.messages));
                 const realMessages = elements.filter(el => !el.closest('.max-h-\\[200px\\]'));
-                return realMessages.map(el => ({ role: 'assistant', text: el.innerText }));
+                
+                return realMessages.map(messageEl => {
+                    let text = messageEl.innerText;
+                    
+                    // 1. Search for actual <img> tags
+                    const imgs = Array.from(messageEl.querySelectorAll('img'));
+                    imgs.forEach(img => {
+                        const src = img.getAttribute('src');
+                        const alt = img.getAttribute('alt') || 'Image';
+                        if (src && !text.includes(src)) {
+                            text += `\n\n![${alt}](${src})`;
+                        }
+                    });
+                    
+                    // 2. Search for local file links/anchors or elements with path data
+                    const links = Array.from(messageEl.querySelectorAll('a, [data-path], [data-uri], [data-resource]'));
+                    links.forEach(el => {
+                        const href = el.getAttribute('href') || el.getAttribute('data-path') || el.getAttribute('data-uri') || el.getAttribute('data-resource');
+                        if (href && (href.startsWith('file:///') || /^[A-Za-z]:[\\/]/.test(href))) {
+                            const isImage = /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(href);
+                            if (isImage && !text.includes(href)) {
+                                const alt = el.innerText.replace(/Review\n/g, '').trim() || 'Attachment';
+                                text += `\n\n![${alt}](${href})`;
+                            }
+                        }
+                    });
+                    
+                    // 3. Deep scanner of all data attributes for hidden image links
+                    const subEls = Array.from(messageEl.querySelectorAll('*'));
+                    subEls.forEach(el => {
+                        if (!el.attributes) return;
+                        for (let i = 0; i < el.attributes.length; i++) {
+                            const attr = el.attributes[i];
+                            const val = attr.value;
+                            if (val && (val.startsWith('file:///') || /^[A-Za-z]:[\\/]/.test(val))) {
+                                const isImage = /\.(png|jpe?g|gif|webp|svg)($|\?)/i.test(val);
+                                if (isImage && !text.includes(val)) {
+                                    text += `\n\n![Attachment](${val})`;
+                                }
+                            }
+                        }
+                    });
+                    
+                    return { role: 'assistant', text };
+                });
             }, this.SELECTORS);
+
+            const processedMessages = [];
+            for (const m of rawMessages) {
+                processedMessages.push({
+                    role: m.role,
+                    text: await processLocalAttachments(m.text)
+                });
+            }
+            return processedMessages;
         } catch (error) {
             if (!error.message.includes('detached Frame')) {
                 console.error('[ERROR] Fetching all messages failed:', error);
